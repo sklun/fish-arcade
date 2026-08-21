@@ -1,0 +1,6 @@
+services:
+  arrow:
+    build: .
+    expose:
+      - "80"
+    restart: unless-stopped

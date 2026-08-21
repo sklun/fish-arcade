@@ -1,0 +1,23 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+playwright-report/
+test-results/
+blob-report/
+
+temp/
+*.log
+npm-debug.log*
+
+# Local assistant instructions and machine-specific rule files.
+AGENT.md
+AGENTS.md
+*.rules

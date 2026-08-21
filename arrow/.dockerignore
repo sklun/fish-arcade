@@ -1,0 +1,17 @@
+node_modules
+dist
+playwright-report
+test-results
+.git
+.idea
+.vscode
+.DS_Store
+.env
+.env.*
+npm-debug.log*
+AGENT.md
+AGENTS.md
+*.rules
+docs
+arrow.md
+example.png

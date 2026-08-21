@@ -1,0 +1,12 @@
+.git
+.DS_Store
+**/node_modules
+**/dist
+**/playwright-report
+**/test-results
+**/.env
+**/.env.*
+**/npm-debug.log*
+**/AGENT.md
+**/AGENTS.md
+**/*.rules
