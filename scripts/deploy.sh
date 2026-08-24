@@ -105,6 +105,13 @@ rsync "${rsync_arguments[@]}" \
 	"${REMOTE_HOST}:${REMOTE_SOURCE_DIR}/"
 printf '%s\n' "| Local project synchronized to the remote build source."
 
+# Public platform artwork must be readable by the unprivileged Nginx worker.
+# Repair permissions on existing remote copies as well as freshly synced files.
+printf -v remote_command 'find %q -type f -exec chmod 0644 {} +' \
+	"${REMOTE_SOURCE_DIR}/web/public/games"
+run_remote_shell "${remote_command}"
+printf '%s\n' "| Platform artwork permissions normalized."
+
 printf '%s\n' "+ Remote Compose configuration"
 # The remote stack receives a copy; the repository root remains the only source config.
 printf -v remote_command 'install -m 0644 %q %q' \
