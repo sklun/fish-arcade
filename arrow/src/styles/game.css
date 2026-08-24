@@ -82,11 +82,15 @@ h1, h2, p { margin-top: 0; }
 .tool-button b { display: inline-grid; min-width: 18px; height: 18px; padding: 0 4px; place-items: center; border-radius: 4px; background: color-mix(in srgb, var(--bg) 55%, transparent); font-size: .68rem; }
 .tool-button--accent { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); color: var(--accent); }
 
-.overlay { position: fixed; z-index: 20; inset: 0; display: grid; padding: 22px; place-items: center; background: rgb(8 11 14 / 78%); backdrop-filter: blur(8px); }
-.dialog-panel { width: min(420px, 100%); padding: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
-.dialog-panel__label, .result-panel__label { color: var(--accent); font-size: .75rem; font-weight: 800; }
-.dialog-panel h2 { margin: 8px 0 28px; font-size: 1.65rem; }
-.dialog-panel__actions { display: grid; gap: 10px; }
+.overlay { position: fixed; z-index: 20; inset: 0; display: grid; padding: 20px; place-items: center; background: rgb(8 11 14 / 78%); backdrop-filter: blur(8px); }
+.pause-panel, .result-card { width: min(420px, 100%); padding: clamp(24px, 6vw, 38px); border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
+.pause-panel { display: grid; justify-items: center; text-align: center; }
+.pause-panel__icon, .result-panel__mark { display: grid; width: 54px; height: 54px; place-items: center; margin-bottom: 17px; border: 1px solid color-mix(in srgb, var(--accent) 65%, var(--line)); border-radius: 50%; color: var(--accent); background: color-mix(in srgb, var(--accent) 11%, transparent); }
+.pause-panel__eyebrow, .result-panel__label { color: var(--accent); font-size: .75rem; font-weight: 800; letter-spacing: .18em; }
+.pause-panel h2 { margin: 9px 0 8px; font-size: 1.65rem; font-weight: 500; }
+.pause-panel p { margin: 0 0 23px; color: var(--muted); font-size: .86rem; }
+.pause-panel > .primary-button { width: min(264px, 100%); }
+.pause-panel__links { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; margin-top: 18px; }
 
 .result-screen { display: grid; min-height: 100dvh; grid-template-rows: auto 1fr; padding: max(24px, env(safe-area-inset-top)) max(26px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(26px, env(safe-area-inset-left)); background: linear-gradient(180deg, var(--surface) 0, var(--bg) 44%); }
 .result-panel { width: min(560px, 100%); align-self: center; justify-self: center; text-align: center; }

@@ -125,9 +125,11 @@ button:disabled { cursor: not-allowed; opacity: 0.62; }
 .overlay { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(2, 10, 19, 0.72); backdrop-filter: blur(10px); }
 .pause-panel, .settings-panel, .result-card { width: min(420px, 100%); padding: clamp(24px, 6vw, 38px); border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface-strong); box-shadow: 0 25px 80px rgba(0, 0, 0, 0.35); }
 .pause-panel { display: grid; justify-items: center; text-align: center; }
-.pause-panel__icon, .result-card__icon { display: grid; width: 54px; height: 54px; place-items: center; margin-bottom: 17px; border: 1px solid rgba(86, 212, 221, 0.55); border-radius: 50%; color: var(--accent); background: rgba(86, 212, 221, 0.11); }
+.pause-panel__icon, .result-card__icon { display: grid; width: 54px; height: 54px; place-items: center; margin-bottom: 17px; border: 1px solid color-mix(in srgb, var(--accent) 65%, var(--line-strong)); border-radius: 50%; color: var(--accent); background: color-mix(in srgb, var(--accent) 11%, transparent); }
+.pause-panel__eyebrow { color: var(--accent); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.18em; }
 .pause-panel h2, .result-card h1 { margin: 9px 0 8px; font-size: 1.65rem; font-weight: 500; }
 .pause-panel p, .result-card p { margin: 0 0 23px; color: var(--muted); font-size: 0.86rem; }
+.pause-panel > .primary-button { width: min(264px, 100%); }
 .pause-panel__links, .result-links { display: flex; gap: 18px; margin-top: 18px; }
 .panel-heading { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 22px; }
 .panel-heading h2 { margin: 7px 0 0; font-size: 1.45rem; font-weight: 500; }
