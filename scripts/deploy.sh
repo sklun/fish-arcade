@@ -55,14 +55,10 @@ remote_compose() {
 	local compose_command=$1
 	local remote_command
 
-	# The source directory is passed only to the remote Compose process and is not
-	# stored in the repository's Compose file.
-	printf -v remote_command 'cd %q && FISH_SOURCE_DIR=%q' \
-		"${REMOTE_STACK_DIR}" "${REMOTE_SOURCE_DIR}"
-	if [[ -n "${WEB_PORT:-}" ]]; then
-		printf -v remote_command '%s WEB_PORT=%q' "${remote_command}" "${WEB_PORT}"
-	fi
-	printf -v remote_command '%s of docker compose %s' "${remote_command}" "${compose_command}"
+	# Pass the local .env values into the target VM through env(1). The values
+	# are not persisted in the remote Compose directory.
+	printf -v remote_command 'cd %q && of env FISH_SOURCE_DIR=%q WEB_PORT=%q docker compose %s' \
+		"${REMOTE_STACK_DIR}" "${REMOTE_SOURCE_DIR}" "${WEB_PORT:-8080}" "${compose_command}"
 	run_remote_shell "${remote_command}"
 }
 
