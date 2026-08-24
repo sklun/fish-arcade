@@ -12,6 +12,7 @@
   --lime: #d8ff55;
   --coral: #ff735f;
   --cyan: #5fd7d0;
+  --control-radius: 6px;
 }
 
 * {
@@ -86,7 +87,7 @@ a:focus-visible {
 .topbar__meta {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -102,11 +103,14 @@ a:focus-visible {
   height: 8px;
   border-radius: 50%;
   background: #26a95f;
-  box-shadow: 0 0 0 3px rgb(38 169 95 / 14%);
 }
 
 .edition {
+  flex: 0 0 19ch;
   color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .catalog-heading {
@@ -145,13 +149,12 @@ a:focus-visible {
 
 .game-entry {
   display: grid;
-  min-height: 680px;
+  min-height: 560px;
   grid-template-columns: minmax(0, 1fr) minmax(380px, 0.9fr);
   overflow: hidden;
   border: 2px solid var(--ink);
   border-radius: 8px;
   background: var(--white);
-  box-shadow: 10px 10px 0 var(--ink);
 }
 
 .game-entry__copy {
@@ -173,7 +176,7 @@ a:focus-visible {
 }
 
 .game-entry__title-row {
-  position: relative;
+  position: static;
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -203,14 +206,24 @@ a:focus-visible {
 }
 
 .live-badge {
-  position: relative;
+  position: absolute;
+  top: 23px;
+  left: 46px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   z-index: 1;
-  padding: 7px 10px;
-  border: 1px solid var(--ink);
-  border-radius: 4px;
-  background: var(--lime);
-  font-size: 0.7rem;
+  color: var(--muted);
+  font-size: 0.68rem;
   font-weight: 850;
+}
+
+.live-badge i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid #167342;
+  border-radius: 50%;
+  background: #36c878;
 }
 
 .game-entry__summary {
@@ -257,106 +270,181 @@ a:focus-visible {
   justify-content: center;
   gap: 10px;
   padding: 0 18px;
-  border: 2px solid var(--ink);
-  border-radius: 6px;
+  border: 1px solid var(--ink);
+  border-radius: var(--control-radius);
   background: var(--lime);
   color: var(--ink);
   font-size: 0.92rem;
   font-weight: 900;
   text-decoration: none;
-  box-shadow: 4px 4px 0 var(--ink);
-  transition: translate 150ms ease, box-shadow 150ms ease;
+  transition: background-color 150ms ease, border-color 150ms ease;
 }
 
-.play-button span {
-  margin-left: auto;
-  font-size: 0.72rem;
-}
-
-.level-progress {
-  margin-bottom: 26px;
+.level-actions {
+  display: grid;
+  align-items: start;
+  gap: 16px;
+  margin-top: 0;
   padding-top: 19px;
   border-top: 1px solid var(--line);
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 0.72fr);
 }
 
-.level-progress__heading,
-.level-progress__heading span,
-.level-progress__controls {
+.level-selector {
+  position: relative;
+  min-width: 0;
+}
+
+.level-selector__trigger {
   display: flex;
+  width: 100%;
+  min-height: 52px;
   align-items: center;
-}
-
-.level-progress__heading {
   justify-content: space-between;
-  gap: 16px;
-  font-size: 0.72rem;
-}
-
-.level-progress__heading span {
-  gap: 7px;
-  color: var(--muted);
-  font-weight: 800;
-}
-
-.level-progress__heading strong {
-  font-size: 0.76rem;
-}
-
-.level-progress__controls {
-  gap: 20px;
-  margin-top: 14px;
-}
-
-.level-progress label {
-  display: grid;
-  min-width: 148px;
-  gap: 6px;
+  gap: 12px;
+  padding: 0 11px;
+  border: 1px solid var(--ink);
+  border-radius: var(--control-radius);
+  background: var(--white);
+  cursor: pointer;
+  font: inherit;
   color: var(--muted);
   font-size: 0.66rem;
   font-weight: 750;
 }
 
-.level-progress select {
-  width: 100%;
-  min-height: 40px;
-  padding: 0 34px 0 11px;
-  border: 1px solid var(--ink);
-  border-radius: 4px;
-  color: var(--ink);
-  background: var(--white);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 850;
+.level-selector__trigger:hover {
+  background: #fafbf6;
 }
 
-.level-progress__stage {
-  display: grid;
-  min-width: 0;
-  flex: 1;
-  gap: 9px;
+.level-selector__trigger:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.level-selector__trigger strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  color: var(--ink);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.level-selector__trigger-icon {
+  flex: 0 0 auto;
+  transition: rotate 150ms ease;
+}
+
+.level-selector__trigger-icon--open {
+  rotate: 180deg;
+}
+
+.difficulty-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--lime);
+}
+
+.difficulty-dot--hard {
+  background: var(--coral);
+}
+
+.level-calendar__legend {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 8px;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.6rem;
   font-weight: 750;
 }
 
-.progress-track {
-  height: 7px;
-  overflow: hidden;
-  border: 1px solid var(--ink);
-  border-radius: 2px;
-  background: #e4e6df;
+.level-calendar__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
-.progress-track i {
-  display: block;
-  height: 100%;
+.level-selector__popover {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: max-content;
+  max-width: min(390px, calc(100vw - 32px));
+  max-height: 246px;
+  margin-top: 0;
+  overflow: hidden;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: #fafbf6;
+}
+
+.level-selector__popover .level-calendar__legend {
+  margin-top: 0;
+}
+
+.level-calendar {
+  display: grid;
+  max-height: 190px;
+  width: max-content;
+  max-width: 100%;
+  grid-template-columns: repeat(5, 28px);
+  gap: 4px;
+  margin-top: 8px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.level-tile {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: var(--white);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 850;
+  transition: translate 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.level-tile--hard {
+  border-color: var(--coral);
+  background: #ffe3de;
+}
+
+.level-tile--selected {
+  border: 2px solid var(--ink);
+  background: var(--lime);
+}
+
+.level-tile--hard.level-tile--selected {
   background: var(--coral);
-  transition: width 180ms ease;
+}
+
+.level-tile:hover {
+  translate: 0 -1px;
+}
+
+.level-tile:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .play-button:hover {
-  translate: 2px 2px;
-  box-shadow: 2px 2px 0 var(--ink);
+  background: #cfff44;
 }
 
 .game-entry__visual {
@@ -424,11 +512,9 @@ a:focus-visible {
 .arrow-art__kicker,
 .arrow-art__title,
 .arrow-art__cn,
-.arrow-art__progress,
 .aemeath-art__protocol,
 .aemeath-art__kicker,
 .aemeath-art__title,
-.aemeath-art__progress,
 .aemeath-art__portrait,
 .aemeath-art__caption {
   position: absolute;
@@ -471,18 +557,6 @@ a:focus-visible {
   font-weight: 800;
 }
 
-.arrow-art__progress,
-.aemeath-art__progress {
-  right: 38px;
-  bottom: 38px;
-  padding: 8px 10px;
-  border-left: 3px solid var(--lime);
-  background: rgb(13 17 22 / 78%);
-  color: var(--lime);
-  font-size: 0.68rem;
-  font-weight: 850;
-}
-
 .aemeath-art__protocol {
   top: 38px;
   left: 38px;
@@ -517,7 +591,6 @@ a:focus-visible {
   padding: 8px;
   border: 1px solid rgb(160 239 242 / 65%);
   background: rgb(8 22 36 / 62%);
-  box-shadow: 0 0 48px rgb(77 202 222 / 24%);
   rotate: -6deg;
 }
 
@@ -537,13 +610,6 @@ a:focus-visible {
   color: #a7e9ee;
   font-size: 0.58rem;
   font-weight: 800;
-}
-
-.aemeath-art__progress {
-  right: auto;
-  left: 38px;
-  border-color: #8eeaf0;
-  color: #8eeaf0;
 }
 
 .footer {
@@ -575,12 +641,18 @@ a:focus-visible {
   }
 
   .game-entry {
+    min-height: 0;
     grid-template-columns: 1fr;
   }
 
   .game-entry__copy {
-    min-height: 650px;
+    min-height: 0;
     padding: 34px 30px 32px;
+  }
+
+  .live-badge {
+    top: 18px;
+    left: 30px;
   }
 
   .game-entry__visual {
@@ -624,13 +696,14 @@ a:focus-visible {
     padding-bottom: 52px;
   }
 
-  .game-entry {
-    box-shadow: 6px 6px 0 var(--ink);
+  .game-entry__copy {
+    min-height: 0;
+    padding: 28px 22px 28px;
   }
 
-  .game-entry__copy {
-    min-height: 660px;
-    padding: 28px 22px 28px;
+  .live-badge {
+    top: 18px;
+    left: 22px;
   }
 
   .game-entry__number {
@@ -657,14 +730,14 @@ a:focus-visible {
     row-gap: 12px;
   }
 
-  .level-progress__controls {
-    align-items: stretch;
-    flex-direction: column;
+  .level-actions {
+    grid-template-columns: 1fr;
     gap: 13px;
   }
 
-  .level-progress label {
-    width: 100%;
+  .level-calendar {
+    max-height: 184px;
+    grid-template-columns: repeat(5, 28px);
   }
 
   .game-entry__facts div:last-child {

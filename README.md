@@ -10,7 +10,7 @@ Vue 3 小游戏集合，由一个 Web 入口统一代理：
 
 游戏规则见 [Arrow 说明](arrow/arrow.md) 和 [寻找爱弥斯规则摘要](find-aemeath/docs/rules-summary.md)。
 
-平台首页统一承载游戏题图、关卡进度和已解锁关卡选择。游戏链接使用 `?level=<index>` 直达所选关卡；各游戏根路径也会直接进入当前进度，不再提供独立开始页。同语义操作统一使用 Lucide 图标。
+平台首页统一承载游戏题图和已解锁关卡选择，并以弹出的日历式网格展示关卡：每 5 关用线框表示一个组别，普通/困难关卡用颜色区分。游戏链接使用 `?level=<index>` 直达所选关卡；各游戏根路径也会直接进入当前进度，不再提供独立开始页。同语义操作统一使用 Lucide 图标。
 
 ## 部署结构
 
@@ -37,7 +37,7 @@ Web 服务是平台唯一入口，具体主机和端口由部署环境提供：
 
 ## 运维
 
-在部署主机上进入 `FISH_REMOTE_STACK_DIR` 后使用标准 `docker compose ps`、`docker compose logs` 和 `docker compose down`。不要把实际主机名、路径或测试地址写入文档。
+在部署主机上进入 `FISH_REMOTE_STACK_DIR` 后使用标准 `docker compose ps`、`docker compose logs` 和 `docker compose down`。README 等通用使用文档保留环境变量形式；项目固定的主机、路径和测试入口只记录在 `AGENTS.md` 等项目运维指令中。
 
 回滚时先恢复本地源码，再重新运行发布脚本，避免远端形成无法从本地复现的版本。
 

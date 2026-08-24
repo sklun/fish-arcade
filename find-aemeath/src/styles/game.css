@@ -111,7 +111,9 @@ button:disabled { cursor: not-allowed; opacity: 0.62; }
 .board-cell--auto-flagged .board-cell__mark {
   animation: auto-mark-wave-in 420ms cubic-bezier(0.2, 0.78, 0.25, 1) var(--auto-mark-delay, 0ms) both;
 }
-.board-cell__mark { position: relative; z-index: 1; color: #f8fbff; font-size: clamp(1.4rem, 5vw, 2.5rem); line-height: 1; font-weight: 300; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.2); }
+.board-cell__mark { position: relative; z-index: 1; display: block; width: 68%; aspect-ratio: 1; font-size: 0; line-height: 0; }
+.board-cell__mark::before, .board-cell__mark::after { position: absolute; top: 50%; left: 50%; width: 100%; height: clamp(3px, 0.45vw, 5px); border-radius: 999px; background: #f8fbff; content: ''; transform: translate(-50%, -50%) rotate(45deg); }
+.board-cell__mark::after { transform: translate(-50%, -50%) rotate(-45deg); }
 .board-cell__wrong { position: relative; display: grid; width: 36%; aspect-ratio: 1; place-items: center; border: 2px solid #ffc4ca; border-radius: 50%; color: #ffc4ca; font-size: 0.75rem; font-weight: 800; }
 .board-cell__icon { position: relative; width: 74%; height: 74%; object-fit: cover; border: 2px solid rgba(255, 247, 206, 0.9); border-radius: 50%; box-shadow: 0 0 18px rgba(255, 235, 154, 0.55); }
 .game-stage__footer { position: relative; z-index: 1; display: flex; justify-content: space-between; width: min(82vw, 680px); padding-top: 12px; color: var(--dim); font-size: 0.68rem; letter-spacing: 0.08em; }

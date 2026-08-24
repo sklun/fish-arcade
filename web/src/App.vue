@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { Clock3, Gamepad2, Play, Trophy, UserRound } from '@lucide/vue'
+import { ChevronDown, Clock3, Gamepad2, Play, UserRound } from '@lucide/vue'
 
 import { gameCatalog, type GameCatalogEntry, type GameId } from './games'
 import { createLevelHref, readGameProgress, type GameProgress } from './progress'
@@ -15,7 +15,27 @@ const emptyProgress = (): ProgressByGame => ({
 
 const progressByGame = ref<ProgressByGame>(emptyProgress())
 const selectedLevels = ref<SelectedLevels>({ arrow: 0, 'find-aemeath': 0 })
+const expandedLevels = ref<Record<GameId, boolean>>({ arrow: false, 'find-aemeath': false })
+const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+})
+const currentDateTime = ref('')
 let initialized = false
+let clockTimer: number | undefined
+
+const refreshCurrentDateTime = (): void => {
+  const parts = Object.fromEntries(
+    dateTimeFormatter.formatToParts(new Date()).map(({ type, value }) => [type, value]),
+  )
+  currentDateTime.value = `${parts.year} / ${parts.month} / ${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`
+}
 
 const refreshProgress = (): void => {
   for (const game of gameCatalog) {
@@ -28,30 +48,35 @@ const refreshProgress = (): void => {
   initialized = true
 }
 
+const selectedLevelNumber = (gameId: GameId): number => selectedLevels.value[gameId] + 1
+
+const difficultyLabel = (levelNumber: number): string => (levelNumber % 5 === 0 ? '困难' : '普通')
+
 const levelOptions = (gameId: GameId): number[] =>
   Array.from({ length: progressByGame.value[gameId].highestUnlockedLevel + 1 }, (_, index) => index)
 
-const selectedLevelNumber = (gameId: GameId): number => selectedLevels.value[gameId] + 1
+const selectLevel = (gameId: GameId, levelIndex: number): void => {
+  selectedLevels.value[gameId] = levelIndex
+  expandedLevels.value[gameId] = false
+}
 
-const difficultyLabel = (gameId: GameId): string =>
-  selectedLevelNumber(gameId) % 5 === 0 ? '困难' : '普通'
-
-const chapterLabel = (gameId: GameId): string =>
-  `第 ${Math.floor(selectedLevels.value[gameId] / 5) + 1} 组 · ${difficultyLabel(gameId)}`
-
-const chapterProgress = (gameId: GameId): string =>
-  `${((selectedLevels.value[gameId] % 5) + 1) * 20}%`
+const toggleLevelPicker = (gameId: GameId): void => {
+  expandedLevels.value[gameId] = !expandedLevels.value[gameId]
+}
 
 const gameHref = (game: GameCatalogEntry): string =>
   createLevelHref(game.playHref, selectedLevels.value[game.id])
 
 onMounted(() => {
   refreshProgress()
+  refreshCurrentDateTime()
+  clockTimer = window.setInterval(refreshCurrentDateTime, 1_000)
   window.addEventListener('pageshow', refreshProgress)
   window.addEventListener('storage', refreshProgress)
 })
 
 onBeforeUnmount(() => {
+  if (clockTimer !== undefined) window.clearInterval(clockTimer)
   window.removeEventListener('pageshow', refreshProgress)
   window.removeEventListener('storage', refreshProgress)
 })
@@ -66,7 +91,7 @@ onBeforeUnmount(() => {
       </a>
       <div class="topbar__meta">
         <span class="availability"><i aria-hidden="true"></i> {{ gameCatalog.length }} 款可玩</span>
-        <span class="edition">2026 / 01</span>
+        <span class="edition" title="Asia/Shanghai 当前日期时间">{{ currentDateTime }}</span>
       </div>
     </header>
 
@@ -88,7 +113,7 @@ onBeforeUnmount(() => {
                 <p class="game-entry__kind">{{ game.kind }}</p>
                 <h2>{{ game.title }} <span>{{ game.englishTitle }}</span></h2>
               </div>
-              <span class="live-badge">可玩</span>
+              <span class="live-badge"><i aria-hidden="true"></i>可玩</span>
             </div>
 
             <p class="game-entry__summary">{{ game.summary }}</p>
@@ -108,34 +133,63 @@ onBeforeUnmount(() => {
               </div>
             </dl>
 
-            <section class="level-progress" :aria-label="`${game.title}关卡进度`">
-              <div class="level-progress__heading">
-                <span><Trophy :size="17" aria-hidden="true" /> 关卡进度</span>
-                <strong>已通过 {{ progressByGame[game.id].completedLevels }} 关</strong>
-              </div>
-              <div class="level-progress__controls">
-                <label>
-                  <span>选择关卡</span>
-                  <select v-model.number="selectedLevels[game.id]">
-                    <option v-for="levelIndex in levelOptions(game.id)" :key="levelIndex" :value="levelIndex">
-                      第 {{ levelIndex + 1 }} 关{{ (levelIndex + 1) % 5 === 0 ? ' · 困难' : '' }}
-                    </option>
-                  </select>
-                </label>
-                <div class="level-progress__stage">
-                  <span>{{ chapterLabel(game.id) }}</span>
-                  <div class="progress-track" aria-hidden="true">
-                    <i :style="{ width: chapterProgress(game.id) }"></i>
+            <div class="level-actions">
+              <section class="level-selector" :aria-label="`${game.title}当前关卡`">
+                <button
+                  class="level-selector__trigger"
+                  :aria-controls="`${game.id}-level-picker`"
+                  :aria-expanded="expandedLevels[game.id]"
+                  :aria-label="`当前第${selectedLevelNumber(game.id)}关，${difficultyLabel(selectedLevelNumber(game.id))}难度，点击选择关卡`"
+                  type="button"
+                  @click="toggleLevelPicker(game.id)"
+                >
+                  <span>当前关卡</span>
+                  <strong>
+                    第 {{ selectedLevelNumber(game.id) }} 关
+                    <i
+                      class="difficulty-dot"
+                      :class="{ 'difficulty-dot--hard': selectedLevelNumber(game.id) % 5 === 0 }"
+                      aria-hidden="true"
+                    ></i>
+                  </strong>
+                  <ChevronDown
+                    class="level-selector__trigger-icon"
+                    :class="{ 'level-selector__trigger-icon--open': expandedLevels[game.id] }"
+                    :size="16"
+                    aria-hidden="true"
+                  />
+                </button>
+
+                <div v-if="expandedLevels[game.id]" :id="`${game.id}-level-picker`" class="level-selector__popover">
+                  <div class="level-calendar__legend" aria-label="难度颜色">
+                    <span><i class="difficulty-dot" aria-hidden="true"></i>普通</span>
+                    <span><i class="difficulty-dot difficulty-dot--hard" aria-hidden="true"></i>困难</span>
+                  </div>
+                  <div class="level-calendar">
+                    <button
+                      v-for="levelIndex in levelOptions(game.id)"
+                      :key="levelIndex"
+                      class="level-tile"
+                      :class="{
+                        'level-tile--hard': (levelIndex + 1) % 5 === 0,
+                        'level-tile--selected': selectedLevels[game.id] === levelIndex,
+                      }"
+                      :aria-label="`第${levelIndex + 1}关，${difficultyLabel(levelIndex + 1)}难度`"
+                      :aria-pressed="selectedLevels[game.id] === levelIndex"
+                      type="button"
+                      @click="selectLevel(game.id, levelIndex)"
+                    >
+                      {{ levelIndex + 1 }}
+                    </button>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            <a class="play-button" :href="gameHref(game)">
-              <Play :size="20" fill="currentColor" aria-hidden="true" />
-              {{ progressByGame[game.id].completedLevels > 0 ? '继续游戏' : '开始游戏' }}
-              <span>第 {{ selectedLevelNumber(game.id) }} 关</span>
-            </a>
+              <a class="play-button" :href="gameHref(game)">
+                <Play :size="20" fill="currentColor" aria-hidden="true" />
+                {{ progressByGame[game.id].completedLevels > 0 ? '继续游戏' : '开始游戏' }}
+              </a>
+            </div>
           </div>
 
           <a
@@ -151,14 +205,12 @@ onBeforeUnmount(() => {
               <span class="arrow-art__kicker">顺序决定出口</span>
               <strong class="arrow-art__title">ARROW</strong>
               <span class="arrow-art__cn">箭序</span>
-              <span class="arrow-art__progress">第 {{ selectedLevelNumber(game.id) }} 关 · {{ difficultyLabel(game.id) }}</span>
             </template>
 
             <template v-else>
               <span class="aemeath-art__protocol">AEMEATH SEARCH PROTOCOL</span>
               <span class="aemeath-art__kicker">LOCATE THE SIGNAL</span>
               <strong class="aemeath-art__title">寻找<br /><em>爱弥斯</em></strong>
-              <span class="aemeath-art__progress">第 {{ selectedLevelNumber(game.id) }} 关 · {{ difficultyLabel(game.id) }}</span>
               <span class="aemeath-art__portrait">
                 <img :src="game.portraitImage" alt="" />
               </span>

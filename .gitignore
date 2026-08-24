@@ -9,6 +9,9 @@ coverage/
 .vite/
 *.tsbuildinfo
 
+# Local implementation plans are working notes and must not be committed.
+implementation-plan.md
+
 playwright-report/
 test-results/
 blob-report/
