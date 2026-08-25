@@ -226,6 +226,15 @@ a:focus-visible {
   background: #36c878;
 }
 
+.live-badge--unavailable {
+  color: #a64032;
+}
+
+.live-badge--unavailable i {
+  border-color: #a64032;
+  background: var(--coral);
+}
+
 .game-entry__summary {
   max-width: 580px;
   margin: 28px 0 26px;
@@ -233,6 +242,30 @@ a:focus-visible {
   font-size: 1.04rem;
   font-weight: 520;
   line-height: 1.85;
+}
+
+.game-entry__availability-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  max-width: 580px;
+  margin: -7px 0 25px;
+  padding: 12px 13px;
+  border: 1px solid #e8a196;
+  border-radius: var(--control-radius);
+  background: #fff2ef;
+  color: #7f332a;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.game-entry__availability-note strong {
+  display: block;
+  margin-bottom: 2px;
+  color: #a64032;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .game-entry__facts {
@@ -315,6 +348,17 @@ a:focus-visible {
 
 .level-selector__trigger:hover {
   background: #fafbf6;
+}
+
+.level-selector__trigger:disabled {
+  border-color: var(--line);
+  background: #f0f1eb;
+  color: #979b96;
+  cursor: not-allowed;
+}
+
+.level-selector__trigger:disabled strong {
+  color: #777c77;
 }
 
 .level-selector__trigger:focus-visible {
@@ -447,6 +491,14 @@ a:focus-visible {
   background: #cfff44;
 }
 
+.play-button--disabled,
+.play-button--disabled:hover {
+  border-color: var(--line);
+  background: #e4e6df;
+  color: #777c77;
+  cursor: not-allowed;
+}
+
 .game-entry__visual {
   position: relative;
   display: block;
@@ -489,6 +541,14 @@ a:focus-visible {
 
 .game-entry__visual:hover > img {
   scale: 1.015;
+}
+
+.game-entry__visual[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+.game-entry__visual[aria-disabled='true'] > img {
+  filter: grayscale(0.35) brightness(0.35) saturate(0.55);
 }
 
 .game-entry__visual--arrow > img {

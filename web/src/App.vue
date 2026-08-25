@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { ChevronDown, Clock3, Gamepad2, Play, UserRound } from '@lucide/vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { Ban, ChevronDown, Clock3, Gamepad2, Info, Play, UserRound } from '@lucide/vue'
 
 import { gameCatalog, type GameCatalogEntry, type GameId } from './games'
 import { createLevelHref, readGameProgress, type GameProgress } from './progress'
@@ -29,6 +29,10 @@ const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
 const currentDateTime = ref('')
 let initialized = false
 let clockTimer: number | undefined
+const availableGameCount = computed(() => gameCatalog.filter((game) => game.availability.available).length)
+const sortedGameCatalog = computed(() =>
+  [...gameCatalog].sort((left, right) => Number(right.availability.available) - Number(left.availability.available)),
+)
 
 const refreshCurrentDateTime = (): void => {
   const parts = Object.fromEntries(
@@ -67,6 +71,9 @@ const toggleLevelPicker = (gameId: GameId): void => {
 const gameHref = (game: GameCatalogEntry): string =>
   createLevelHref(game.playHref, selectedLevels.value[game.id])
 
+const availabilityReason = (game: GameCatalogEntry): string =>
+  game.availability.available ? '' : game.availability.reason
+
 onMounted(() => {
   refreshProgress()
   refreshCurrentDateTime()
@@ -90,7 +97,7 @@ onBeforeUnmount(() => {
         <span>FISH <b>ARCADE</b></span>
       </a>
       <div class="topbar__meta">
-        <span class="availability"><i aria-hidden="true"></i> {{ gameCatalog.length }} 款可玩</span>
+        <span class="availability"><i aria-hidden="true"></i> {{ availableGameCount }} 款可玩</span>
         <span class="edition" title="Asia/Shanghai 当前日期时间">{{ currentDateTime }}</span>
       </div>
     </header>
@@ -105,7 +112,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section class="game-list" aria-label="游戏列表">
-        <article v-for="game in gameCatalog" :key="game.id" class="game-entry">
+        <article v-for="game in sortedGameCatalog" :key="game.id" class="game-entry">
           <div class="game-entry__copy">
             <div class="game-entry__number" aria-hidden="true">{{ game.index }}</div>
             <div class="game-entry__title-row">
@@ -113,10 +120,21 @@ onBeforeUnmount(() => {
                 <p class="game-entry__kind">{{ game.kind }}</p>
                 <h2>{{ game.title }} <span>{{ game.englishTitle }}</span></h2>
               </div>
-              <span class="live-badge"><i aria-hidden="true"></i>可玩</span>
+              <span
+                class="live-badge"
+                :class="{ 'live-badge--unavailable': !game.availability.available }"
+                :aria-label="game.availability.available ? '可玩' : `不可用：${availabilityReason(game)}`"
+              >
+                <i aria-hidden="true"></i>{{ game.availability.available ? '可玩' : '不可用' }}
+              </span>
             </div>
 
             <p class="game-entry__summary">{{ game.summary }}</p>
+
+            <p v-if="!game.availability.available" class="game-entry__availability-note" role="status">
+              <Info :size="17" aria-hidden="true" />
+              <span><strong>暂不可用</strong>{{ availabilityReason(game) }}</span>
+            </p>
 
             <dl class="game-entry__facts">
               <div>
@@ -139,7 +157,10 @@ onBeforeUnmount(() => {
                   class="level-selector__trigger"
                   :aria-controls="`${game.id}-level-picker`"
                   :aria-expanded="expandedLevels[game.id]"
-                  :aria-label="`当前第${selectedLevelNumber(game.id)}关，${difficultyLabel(selectedLevelNumber(game.id))}难度，点击选择关卡`"
+                  :aria-label="game.availability.available
+                    ? `当前第${selectedLevelNumber(game.id)}关，${difficultyLabel(selectedLevelNumber(game.id))}难度，点击选择关卡`
+                    : `当前第${selectedLevelNumber(game.id)}关，游戏不可用：${availabilityReason(game)}`"
+                  :disabled="!game.availability.available"
                   type="button"
                   @click="toggleLevelPicker(game.id)"
                 >
@@ -185,18 +206,26 @@ onBeforeUnmount(() => {
                 </div>
               </section>
 
-              <a class="play-button" :href="gameHref(game)">
+              <a v-if="game.availability.available" class="play-button" :href="gameHref(game)">
                 <Play :size="20" fill="currentColor" aria-hidden="true" />
                 {{ progressByGame[game.id].completedLevels > 0 ? '继续游戏' : '开始游戏' }}
               </a>
+              <button v-else class="play-button play-button--disabled" type="button" disabled>
+                <Ban :size="19" aria-hidden="true" />
+                暂不可用
+              </button>
             </div>
           </div>
 
-          <a
+          <component
+            :is="game.availability.available ? 'a' : 'div'"
             class="game-entry__visual"
             :class="`game-entry__visual--${game.artwork}`"
-            :href="gameHref(game)"
-            :aria-label="`开始${game.title}第${selectedLevelNumber(game.id)}关`"
+            :href="game.availability.available ? gameHref(game) : undefined"
+            :aria-label="game.availability.available
+              ? `开始${game.title}第${selectedLevelNumber(game.id)}关`
+              : `${game.title}暂不可用：${availabilityReason(game)}`"
+            :aria-disabled="!game.availability.available"
           >
             <img :src="game.image" :alt="game.imageAlt" />
 
@@ -216,7 +245,7 @@ onBeforeUnmount(() => {
               </span>
               <span class="aemeath-art__caption">TARGET / AEMEATH</span>
             </template>
-          </a>
+          </component>
         </article>
       </section>
     </main>

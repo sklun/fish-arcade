@@ -1,6 +1,10 @@
 export type GameId = 'arrow' | 'find-aemeath'
 export type GameArtwork = 'arrow' | 'aemeath'
 
+export type GameAvailability =
+  | { available: true }
+  | { available: false; reason: string }
+
 export interface GameCatalogEntry {
   id: GameId
   index: string
@@ -13,6 +17,7 @@ export interface GameCatalogEntry {
   portraitImage?: string
   imageAlt: string
   artwork: GameArtwork
+  availability: GameAvailability
   mode: string
   duration: string
   controls: string
@@ -30,6 +35,7 @@ export const gameCatalog: GameCatalogEntry[] = [
     image: '/games/arrow.png',
     imageAlt: '箭序游戏中由彩色箭头组成的谜题棋盘',
     artwork: 'arrow',
+    availability: { available: false, reason: '棋盘生成算法尚未解决' },
     mode: '单人',
     duration: '约 3 分钟',
     controls: '点击 / 键盘',
@@ -46,6 +52,7 @@ export const gameCatalog: GameCatalogEntry[] = [
     portraitImage: '/games/aemeath-portrait.jpg',
     imageAlt: '寻找爱弥斯开始界面的爱弥斯角色背景',
     artwork: 'aemeath',
+    availability: { available: true },
     mode: '单人',
     duration: '约 4 分钟',
     controls: '点击 / 触摸',
