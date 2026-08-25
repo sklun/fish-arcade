@@ -1,3 +1,5 @@
+.idea/
+
 .DS_Store
 .env
 .env.*
@@ -15,10 +17,13 @@ implementation-plan.md
 playwright-report/
 test-results/
 blob-report/
-
+test/
 temp/
 *.log
 npm-debug.log*
+
+# Local-only visual references.
+example.png
 
 # Local assistant instructions and machine-specific rule files.
 AGENT.md
