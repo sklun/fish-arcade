@@ -40,6 +40,17 @@ export const useGameStore = defineStore('aemeath-game', () => {
   const progressPercent = computed(() =>
     targetCount.value > 0 ? Math.round((foundCount.value / targetCount.value) * 100) : 0,
   )
+  const excludedByTarget = (cell: Cell, target: Cell): boolean =>
+    cell.regionId === target.regionId ||
+    cell.row === target.row ||
+    cell.col === target.col ||
+    (Math.abs(cell.row - target.row) <= 1 && Math.abs(cell.col - target.col) <= 1)
+  const knownTargetMarkableCount = computed(() => {
+    const targets = cells.value.filter((cell) => cell.status === 'revealed-target')
+    return cells.value.filter((cell) =>
+      cell.status === 'hidden' && targets.some((target) => excludedByTarget(cell, target)),
+    ).length
+  })
   const iconUrl = computed(() => assetUrl(ICON_ASSETS, iconAsset.value))
   const backgroundUrl = computed(() => assetUrl(BACKGROUND_ASSETS, backgroundAsset.value))
 
@@ -135,13 +146,22 @@ export const useGameStore = defineStore('aemeath-game', () => {
     if (!autoMark.value || !level.value) return 0
     let markedCount = 0
     for (const cell of level.value.cells) {
-      const excludedByTarget =
-        cell.regionId === target.regionId ||
-        cell.row === target.row ||
-        cell.col === target.col ||
-        (Math.abs(cell.row - target.row) <= 1 && Math.abs(cell.col - target.col) <= 1)
-      if (excludedByTarget && cell.status === 'hidden') {
+      if (excludedByTarget(cell, target) && cell.status === 'hidden') {
         cell.status = 'auto-flagged'
+        markedCount += 1
+      }
+    }
+    return markedCount
+  }
+
+  const markKnownTargets = (): number => {
+    if (status.value !== 'playing' || inputLocked.value || !level.value) return 0
+    const targets = level.value.cells.filter((cell) => cell.status === 'revealed-target')
+    if (targets.length === 0) return 0
+    let markedCount = 0
+    for (const cell of level.value.cells) {
+      if (cell.status === 'hidden' && targets.some((target) => excludedByTarget(cell, target))) {
+        setCellStatus(cell, 'flagged')
         markedCount += 1
       }
     }
@@ -268,6 +288,7 @@ export const useGameStore = defineStore('aemeath-game', () => {
     foundCount,
     remainingTargets,
     progressPercent,
+    knownTargetMarkableCount,
     startLevel,
     restartLevel,
     nextLevel,
@@ -276,6 +297,7 @@ export const useGameStore = defineStore('aemeath-game', () => {
     goHome,
     tick,
     markCell,
+    markKnownTargets,
     revealCell,
     useHint,
     clearPlayerMarks,

@@ -20,6 +20,15 @@ test('starts a level and exposes the core controls', async ({ page }) => {
   await expect(page.locator('.board-cell__shine')).toHaveCount(0)
   await expect(page.getByLabel('本关用时')).toHaveText(/^\d{2,}:\d{2}$/)
   await expect(page.getByRole('button', { name: '目标提示' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '手动标记' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '设置' })).toBeVisible()
+  await expect(page.locator('.game-subbar__status')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '自动标记' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '音效' })).toHaveCount(0)
+  await page.getByRole('button', { name: '设置' }).click()
+  await expect(page.getByRole('dialog', { name: '设置' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '自动标记' })).toHaveAttribute('aria-pressed', 'false')
+  await page.getByRole('button', { name: '关闭设置' }).click()
   await expect(page.getByRole('button', { name: '暂停' })).toBeVisible()
   await page.getByRole('button', { name: '暂停' }).click()
   await expect(page.getByRole('dialog', { name: '暂时停留' })).toBeVisible()
@@ -28,6 +37,9 @@ test('starts a level and exposes the core controls', async ({ page }) => {
 
 test('animates automatic marks as an outward X wave', async ({ page }) => {
   await startGame(page)
+  await page.getByRole('button', { name: '设置' }).click()
+  await page.getByRole('button', { name: '自动标记' }).click()
+  await page.getByRole('button', { name: '关闭设置' }).click()
   const target = await page.evaluate(() => {
     const app = document.querySelector('#app') as HTMLElement & {
       __vue_app__?: { config: { globalProperties: { $pinia: { _s: Map<string, { cells: Array<{ row: number; col: number; hasTarget: boolean }> }> } } } }
@@ -60,6 +72,23 @@ test('animates automatic marks as an outward X wave', async ({ page }) => {
   expect(waveDelays.every((cell) => cell.opacity === '1')).toBe(true)
   expect(nearest.delay).toBe(0)
   expect(nearest.delay).toBeLessThan(farthest.delay)
+})
+
+test('manually marks exclusions from a discovered target', async ({ page }) => {
+  await startGame(page)
+  const target = await page.evaluate(() => {
+    const app = document.querySelector('#app') as HTMLElement & {
+      __vue_app__?: { config: { globalProperties: { $pinia: { _s: Map<string, { cells: Array<{ row: number; col: number; hasTarget: boolean }> }> } } } }
+    }
+    const store = app.__vue_app__?.config.globalProperties.$pinia._s.get('aemeath-game')
+    const cell = store?.cells.find((candidate) => candidate.hasTarget)
+    if (!cell) throw new Error('Target cell is unavailable')
+    return { row: cell.row, col: cell.col }
+  })
+  await page.getByRole('gridcell', { name: new RegExp(`第 ${target.row + 1} 行第 ${target.col + 1} 列`) }).dblclick()
+  await page.getByRole('button', { name: '手动标记' }).click()
+  await expect(page.locator('.game-tools__notice')).toContainText('已手动标记')
+  expect(await page.locator('.board-cell--flagged').count()).toBeGreaterThan(0)
 })
 
 test('fits the game background to the viewport', async ({ page }) => {

@@ -13,7 +13,7 @@ const STORAGE_KEY = 'find-aemeath:v1:progress'
 const defaults: SavedProgress = {
   highestLevel: 0,
   currentLevel: 0,
-  autoMark: true,
+  autoMark: false,
   sound: true,
   theme: 'dark',
   iconAsset: 'default',
@@ -31,7 +31,7 @@ export const loadProgress = (): SavedProgress => {
       ...saved,
       highestLevel: Math.max(0, Number(saved.highestLevel) || 0),
       currentLevel: Math.max(0, Number(saved.currentLevel) || 0),
-      autoMark: saved.autoMark !== false,
+      autoMark: saved.autoMark === true,
       sound: saved.sound !== false,
     }
   } catch {

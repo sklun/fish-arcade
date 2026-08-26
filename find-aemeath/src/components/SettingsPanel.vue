@@ -33,7 +33,7 @@ const selectValue = (event: Event): string =>
         <div><span class="hud__eyebrow">SYSTEM CONFIG</span><h2 id="settings-title">设置</h2></div>
         <button class="icon-button" type="button" aria-label="关闭设置" title="关闭" @click="$emit('close')"><X :size="20" /></button>
       </div>
-      <button class="setting-row" type="button" @click="$emit('toggleAutoMark')">
+      <button class="setting-row" type="button" aria-label="自动标记" :aria-pressed="autoMark" @click="$emit('toggleAutoMark')">
         <span><b>自动标记</b><small>找到目标后标记全盘排除格</small></span>
         <span class="toggle" :class="{ 'toggle--on': autoMark }"><Check v-if="autoMark" :size="15" /></span>
       </button>

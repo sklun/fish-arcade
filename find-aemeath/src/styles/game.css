@@ -77,7 +77,6 @@ button:disabled { cursor: not-allowed; opacity: 0.62; }
 .hud-lives__empty { color: var(--dim); opacity: 0.5; }
 .game-subbar { display: flex; align-items: center; gap: 15px; min-height: 46px; color: var(--muted); font-size: 0.75rem; }
 .game-subbar__hint { color: var(--dim); }
-.game-subbar__status { margin-left: auto; color: var(--warm); }
 .text-button { display: inline-flex; align-items: center; gap: 7px; padding: 5px 0; color: var(--muted); background: transparent; font-size: 0.77rem; }
 .text-button:hover, .text-button:focus-visible { color: var(--accent); outline: none; }
 
@@ -205,7 +204,6 @@ button:disabled { cursor: not-allowed; opacity: 0.62; }
   .hud__stats .hud-stat:first-child { display: none; }
   .game-subbar { flex-wrap: wrap; gap: 6px 12px; padding: 8px 0; }
   .game-subbar__hint { order: 3; flex-basis: 100%; font-size: 0.68rem; }
-  .game-subbar__status { margin-left: auto; }
   .game-stage { padding-top: 18px; }
   .board-shell, .game-stage__footer { width: min(92vw, 560px, max(220px, calc(100svh - 240px))); }
   .game-tools { align-items: flex-start; flex-direction: column; }

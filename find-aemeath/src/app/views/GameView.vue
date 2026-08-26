@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Eye, Flag, Gamepad2, RotateCcw, Settings2, Trash2, Volume2, VolumeX } from '@lucide/vue'
+import { Eye, Flag, Gamepad2, RotateCcw, Settings2, Trash2 } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useGameStore } from '@/app/stores/game'
@@ -20,6 +20,15 @@ let timerId: number | undefined
 const handleMark = (point: Point): void => {
   notice.value = ''
   store.markCell(point)
+}
+
+const markKnownTargets = (): void => {
+  const markedCount = store.markKnownTargets()
+  notice.value = markedCount > 0
+    ? `已手动标记 ${markedCount} 格`
+    : store.foundCount > 0
+      ? '没有可手动标记的格子'
+      : '尚未发现目标'
 }
 
 const handleReveal = async (point: Point): Promise<void> => {
@@ -102,7 +111,6 @@ onBeforeUnmount(() => {
     <div class="game-subbar">
       <a class="text-button platform-link" href="/"><Gamepad2 :size="16" />游戏中心</a>
       <span class="game-subbar__hint">每色、每行、每列各 1 个且互不相邻 · 单击标记，双击翻开</span>
-      <span class="game-subbar__status" role="status">{{ notice }}</span>
     </div>
 
     <section class="game-stage" aria-label="游戏区域">
@@ -125,13 +133,10 @@ onBeforeUnmount(() => {
       <span class="game-tools__notice">{{ notice }}</span>
       <div class="game-tools__actions">
         <button class="tool-button tool-button--accent" type="button" @click="useHint"><Eye :size="19" /><span>目标提示</span></button>
+        <button class="tool-button" type="button" title="标记已发现目标排除的格子" :disabled="store.status !== 'playing' || store.inputLocked" @click="markKnownTargets"><Flag :size="19" /><span>手动标记</span></button>
         <button class="tool-button" type="button" title="清除玩家标记" @click="store.clearPlayerMarks"><Trash2 :size="19" /><span>清除标记</span></button>
-        <button class="tool-button" :class="{ 'tool-button--active': store.autoMark }" type="button" @click="store.toggleAutoMark"><Flag :size="19" /><span>自动标记</span></button>
         <button class="tool-button" type="button" title="重新开始" @click="restart"><RotateCcw :size="19" /><span>重来</span></button>
         <button class="tool-button" type="button" title="设置" @click="store.toggleSettings"><Settings2 :size="19" /><span>设置</span></button>
-        <button class="tool-button" type="button" :title="store.soundEnabled ? '关闭音效' : '开启音效'" @click="store.toggleSound">
-          <Volume2 v-if="store.soundEnabled" :size="19" /><VolumeX v-else :size="19" /><span>音效</span>
-        </button>
       </div>
     </footer>
 

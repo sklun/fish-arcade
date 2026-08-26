@@ -12,6 +12,7 @@ describe('aemeath game store', () => {
 
   it('marks and unmarks a hidden cell without spending a life', () => {
     const store = useGameStore()
+    expect(store.autoMark).toBe(false)
     store.startLevel(0)
     const cell = store.cells[0]
     expect(cell).toBeDefined()
@@ -50,6 +51,7 @@ describe('aemeath game store', () => {
 
   it('auto-marks every hidden cell immediately after finding a target', async () => {
     const store = useAemeathStoreForTest()
+    store.toggleAutoMark()
     const target = store.cells.find((cell) => cell.hasTarget)
     expect(target).toBeDefined()
     if (!target) return
@@ -77,6 +79,33 @@ describe('aemeath game store', () => {
       cell !== target && !excludedCells.includes(cell) && cell.status !== 'hidden',
     )).toHaveLength(0)
     expect(await result).toBe('target')
+  })
+
+  it('manually marks cells excluded by discovered targets while preserving existing marks', async () => {
+    const store = useAemeathStoreForTest()
+    const target = store.cells.find((cell) => cell.hasTarget)
+    expect(target).toBeDefined()
+    if (!target) return
+
+    expect(await store.revealCell(target)).toBe('target')
+    const markable = store.cells.filter((cell) =>
+      cell.status === 'hidden' && (
+        cell.regionId === target.regionId ||
+        cell.row === target.row ||
+        cell.col === target.col ||
+        (Math.abs(cell.row - target.row) <= 1 && Math.abs(cell.col - target.col) <= 1)
+      ),
+    )
+    expect(markable.length).toBeGreaterThan(0)
+    expect(store.knownTargetMarkableCount).toBe(markable.length)
+
+    const first = markable[0]
+    if (!first) return
+    store.markCell(first)
+    expect(store.markKnownTargets()).toBe(markable.length - 1)
+    expect(first.status).toBe('flagged')
+    expect(markable.slice(1).every((cell) => cell.status === 'flagged')).toBe(true)
+    expect(store.knownTargetMarkableCount).toBe(0)
   })
 })
 
