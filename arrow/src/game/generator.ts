@@ -1,338 +1,638 @@
-import {
-  DIRECTION_VECTOR,
-  cloneLevel,
-  pointKey,
-  type Arrow,
-  type Direction,
-  type Level,
-  type Point,
-} from '@/game/model'
-import { getLevelProfile, seedForLevel } from '@/game/progression'
-import { canArrowExit } from '@/game/movement'
-import { solveLevel } from '@/game/solver'
+import {type Arrow, type Direction, DIRECTION_VECTOR, type Level, type Point, pointKey,} from '@/game/model'
+import {getLevelProfile, seedForLevel} from '@/game/progression'
+import {solveBoard} from '@/game/solver'
 
 const COLORS = ['#ff7a7f', '#ffd447', '#9be23c', '#5ce1d2', '#66b9ff', '#b49cff', '#f58bd2', '#ffad66']
-const CARDINAL_DIRECTIONS: Direction[] = ['up', 'right', 'down', 'left']
+const CARDINAL_DIRECTIONS: readonly Direction[] = ['up', 'right', 'down', 'left']
+const GRID_DIRECTIONS: readonly Point[] = CARDINAL_DIRECTIONS.map((direction) => DIRECTION_VECTOR[direction])
+const PATH_COUNT_MIN = 80
+const PATH_COUNT_MAX = 120
+const EXIT_COUNT = 5
+const UINT32_BASE = 0x1_0000_0000
 
-interface RowSpan {
-  left: number
-  right: number
+type Path = Point[]
+type Turn = -1 | 0 | 1 | 2
+
+/** Python's Random-compatible MT19937 source for the integer seeds used by Arrow. */
+interface RandomSource {
+    random: () => number
+    choice: <T>(items: readonly T[]) => T
+    shuffle: <T>(items: readonly T[]) => T[]
+    uniform: (minimum: number, maximum: number) => number
 }
 
-interface PathCandidate {
-  cells: Point[]
-  direction: Direction
-}
-
-const createRandom = (seed: number): (() => number) => {
-  let state = seed >>> 0
-  return () => {
-    state += 0x6d2b79f5
-    let value = state
-    value = Math.imul(value ^ (value >>> 15), value | 1)
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61)
-    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296
-  }
-}
-
-const clamp = (value: number, minimum: number, maximum: number): number =>
-  Math.max(minimum, Math.min(maximum, value))
-
-const randomInteger = (minimum: number, maximum: number, random: () => number): number =>
-  minimum + Math.floor(random() * (maximum - minimum + 1))
-
-const shuffled = <T>(items: readonly T[], random: () => number): T[] => {
-  const result = [...items]
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const target = Math.floor(random() * (index + 1))
-    const current = result[index]
-    const replacement = result[target]
-    if (current === undefined || replacement === undefined) continue
-    result[index] = replacement
-    result[target] = current
-  }
-  return result
-}
-
-const createShape = (rows: number, cols: number, random: () => number): RowSpan[] => {
-  const maxInset = Math.max(2, Math.floor(cols * 0.2))
-  let leftInset = randomInteger(0, maxInset, random)
-  let rightInset = randomInteger(0, maxInset, random)
-
-  return Array.from({ length: rows }, (_, row) => {
-    if (row > 0) {
-      leftInset = clamp(leftInset + randomInteger(-1, 1, random), 0, maxInset)
-      rightInset = clamp(rightInset + randomInteger(-1, 1, random), 0, maxInset)
+const createRandom = (seed: number): RandomSource => {
+    const state = new Uint32Array(624)
+    state[0] = 19650218
+    for (let position = 1; position < 624; position += 1) {
+        state[position] = (Math.imul(1812433253, state[position - 1]! ^ (state[position - 1]! >>> 30)) + position) >>> 0
     }
-    const edgeDistance = Math.min(row, rows - row - 1)
-    const taper = edgeDistance === 0 ? 1 : 0
-    const left = clamp(leftInset + taper, 0, maxInset + 1)
-    const right = clamp(cols - 1 - rightInset - taper, left + Math.floor(cols * 0.58), cols - 1)
-    return { left, right }
-  })
-}
-
-const cellsForShape = (spans: RowSpan[]): Point[] =>
-  spans.flatMap((span, row) =>
-    Array.from({ length: span.right - span.left + 1 }, (_, offset) => ({
-      row,
-      col: span.left + offset,
-    })),
-  )
-
-const neighbours = (point: Point): Point[] => [
-  { row: point.row - 1, col: point.col },
-  { row: point.row, col: point.col + 1 },
-  { row: point.row + 1, col: point.col },
-  { row: point.row, col: point.col - 1 },
-]
-
-const directionBetween = (from: Point, to: Point): Direction | null => {
-  const rowDelta = to.row - from.row
-  const colDelta = to.col - from.col
-  if (rowDelta === -1 && colDelta === 0) return 'up'
-  if (rowDelta === 0 && colDelta === 1) return 'right'
-  if (rowDelta === 1 && colDelta === 0) return 'down'
-  if (rowDelta === 0 && colDelta === -1) return 'left'
-  return null
-}
-
-const translate = (point: Point, vector: Point, multiplier = 1): Point => ({
-  row: point.row + vector.row * multiplier,
-  col: point.col + vector.col * multiplier,
-})
-
-const isValidRemainingShape = (remaining: Set<string>, pointByKey: Map<string, Point>): boolean => {
-  if (remaining.size === 0) return true
-  if (remaining.size === 1) return false
-  const firstKey = remaining.values().next().value as string | undefined
-  const first = firstKey ? pointByKey.get(firstKey) : undefined
-  if (!first) return false
-  const visited = new Set<string>()
-  const queue = [first]
-  for (let index = 0; index < queue.length; index += 1) {
-    const point = queue[index]
-    if (!point) continue
-    const currentKey = pointKey(point)
-    if (visited.has(currentKey)) continue
-    visited.add(currentKey)
-    for (const neighbour of neighbours(point)) {
-      const neighbourKey = pointKey(neighbour)
-      if (remaining.has(neighbourKey) && !visited.has(neighbourKey)) queue.push(neighbour)
+    const integerSeed = Number.isSafeInteger(seed) ? Math.abs(seed) : seed >>> 0
+    const key: number[] = []
+    let remainingSeed = integerSeed
+    do {
+        key.push(remainingSeed >>> 0)
+        remainingSeed = Math.floor(remainingSeed / UINT32_BASE)
+    } while (remainingSeed > 0)
+    let index = 1
+    let keyIndex = 0
+    let count = Math.max(624, key.length)
+    while (count > 0) {
+        state[index] = ((state[index]! ^ Math.imul(state[index - 1]! ^ (state[index - 1]! >>> 30), 1664525)) + key[keyIndex]! + keyIndex) >>> 0
+        index += 1
+        keyIndex += 1
+        if (index >= 624) {
+            state[0] = state[623]!
+            index = 1
+        }
+        if (keyIndex >= key.length) keyIndex = 0
+        count -= 1
     }
-  }
-  return visited.size === remaining.size
+    count = 623
+    while (count > 0) {
+        state[index] = ((state[index]! ^ Math.imul(state[index - 1]! ^ (state[index - 1]! >>> 30), 1566083941)) - index) >>> 0
+        index += 1
+        if (index >= 624) {
+            state[0] = state[623]!
+            index = 1
+        }
+        count -= 1
+    }
+    state[0] = 0x80000000
+    let cursor = 624
+
+    const nextUInt32 = (): number => {
+        if (cursor >= 624) {
+            for (let i = 0; i < 624; i += 1) {
+                const y = (state[i]! & 0x80000000) | (state[(i + 1) % 624]! & 0x7fffffff)
+                state[i] = state[(i + 397) % 624]! ^ (y >>> 1)
+                if ((y & 1) !== 0) state[i] = (state[i]! ^ 0x9908b0df) >>> 0
+            }
+            cursor = 0
+        }
+        let value = state[cursor++]!
+        value ^= value >>> 11
+        value ^= (value << 7) & 0x9d2c5680
+        value ^= (value << 15) & 0xefc60000
+        value ^= value >>> 18
+        return value >>> 0
+    }
+
+    const random = (): number => {
+        const first = nextUInt32() >>> 5
+        const second = nextUInt32() >>> 6
+        return (first * 0x4000000 + second) / 0x20000000000000
+    }
+
+    const randBelow = (upperBound: number): number => {
+        if (upperBound <= 0 || !Number.isSafeInteger(upperBound)) throw new Error('Invalid random range')
+        const bits = 32 - Math.clz32(upperBound)
+        while (true) {
+            const value = bits === 0 ? 0 : nextUInt32() >>> (32 - bits)
+            if (value < upperBound) return value
+        }
+    }
+
+    const choice = <T>(items: readonly T[]): T => {
+        const chosen = items[randBelow(items.length)]
+        if (chosen === undefined) throw new Error('Cannot choose from an empty sequence')
+        return chosen
+    }
+
+    const shuffle = <T>(items: readonly T[]): T[] => {
+        const result = [...items]
+        for (let current = result.length - 1; current > 0; current -= 1) {
+            const target = randBelow(current + 1)
+            const value = result[current]!
+            result[current] = result[target]!
+            result[target] = value
+        }
+        return result
+    }
+
+    return {random, choice, shuffle, uniform: (minimum, maximum) => minimum + (maximum - minimum) * random()}
 }
 
-const hasClearExit = (
-  head: Point,
-  direction: Direction,
-  playable: Set<string>,
-  remaining: Set<string>,
-): boolean => {
-  const vector = DIRECTION_VECTOR[direction]
-  let point = translate(head, vector)
-  while (playable.has(pointKey(point))) {
-    if (remaining.has(pointKey(point))) return false
-    point = translate(point, vector)
-  }
-  return true
+const vectorKey = (vector: Point): string => `${vector.row},${vector.col}`
+
+const directionFromVector = (vector: Point): Direction => {
+    const direction = CARDINAL_DIRECTIONS.find((candidate) => vectorKey(DIRECTION_VECTOR[candidate]) === vectorKey(vector))
+    if (!direction) throw new Error(`Invalid cardinal direction: ${vectorKey(vector)}`)
+    return direction
 }
 
-const targetPathLength = (
-  remainingCount: number,
-  pathsCreated: number,
-  targetArrowCount: number,
-  maximum: number,
-  random: () => number,
-): number => {
-  const arrowsNeeded = Math.max(1, targetArrowCount - pathsCreated)
-  const ideal = clamp(Math.floor(remainingCount / arrowsNeeded), 2, maximum)
-  const roll = random()
-  const adjustment = roll < 0.1
-    ? randomInteger(2, 5, random)
-    : roll < 0.55
-      ? -1
-      : 0
-  return clamp(ideal + adjustment, 2, maximum)
+const turnType = (previous: Point | null, current: Point): Turn => {
+    if (!previous || vectorKey(previous) === vectorKey(current)) return 0
+    const previousIndex = GRID_DIRECTIONS.findIndex((direction) => vectorKey(direction) === vectorKey(previous))
+    const currentIndex = GRID_DIRECTIONS.findIndex((direction) => vectorKey(direction) === vectorKey(current))
+    const difference = (currentIndex - previousIndex + 4) % 4
+    if (difference === 1) return 1
+    if (difference === 3) return -1
+    return 2
 }
 
-const buildPathFromExit = (
-  head: Point,
-  direction: Direction,
-  targetLength: number,
-  remaining: Set<string>,
-  random: () => number,
-): Point[] => {
-  const vector = DIRECTION_VECTOR[direction]
-  const previous = translate(head, vector, -1)
-  if (!remaining.has(pointKey(previous))) return []
+const neighbours = (point: Point, rows: number, cols: number): Point[] =>
+    GRID_DIRECTIONS.map((direction) => ({row: point.row + direction.row, col: point.col + direction.col}))
+        .filter((candidate) => candidate.row >= 0 && candidate.row < rows && candidate.col >= 0 && candidate.col < cols)
 
-  const fromHead = [{ ...head }, previous]
-  const used = new Set(fromHead.map(pointKey))
-  let previousDirection = directionBetween(head, previous)
+const unvisitedDegree = (point: Point, visited: Set<string>, rows: number, cols: number): number =>
+    neighbours(point, rows, cols).filter((candidate) => !visited.has(pointKey(candidate))).length
 
-  while (fromHead.length < targetLength) {
-    const current = fromHead[fromHead.length - 1]
-    if (!current) break
-    const candidates = shuffled(
-      neighbours(current).filter((point) => remaining.has(pointKey(point)) && !used.has(pointKey(point))),
-      random,
-    ).sort((left, right) => {
-      const leftDirection = directionBetween(current, left)
-      const rightDirection = directionBetween(current, right)
-      const leftTurn = leftDirection !== previousDirection ? 1 : 0
-      const rightTurn = rightDirection !== previousDirection ? 1 : 0
-      const leftDegree = neighbours(left).filter((point) => remaining.has(pointKey(point)) && !used.has(pointKey(point))).length
-      const rightDegree = neighbours(right).filter((point) => remaining.has(pointKey(point)) && !used.has(pointKey(point))).length
-      return rightTurn - leftTurn || rightDegree - leftDegree
+const distance2 = (point: Point, center: Point): number =>
+    (point.col - center.col) ** 2 + (point.row - center.row) ** 2
+
+const walk = (
+    start: Point,
+    visited: Set<string>,
+    rows: number,
+    cols: number,
+    targetLength: number,
+    random: RandomSource,
+    minStraight = 2,
+    maxStraight = 5,
+    straightBias = 0.82,
+    degreeTolerance = 1,
+    maxSameTurn = 1,
+): Path => {
+    const path: Path = [{...start}]
+    const localVisited = new Set(visited)
+    localVisited.add(pointKey(start))
+    let current = {...start}
+    let lastDirection: Point | null = null
+    let stepsSinceTurn = 0
+    let lastTurn: Turn = 0
+    let sameTurnStreak = 0
+
+    const pickByDegree = (pool: Map<string, { point: Point; degree: number }>): Point => {
+        const best = Math.min(...[...pool.values()].map((candidate) => candidate.degree))
+        return random.choice([...pool.values()].filter((candidate) => candidate.degree === best)).point
+    }
+
+    const filterSpiral = (pool: Map<string, { point: Point; degree: number }>): Map<string, { point: Point; degree: number }> => {
+        if (lastTurn === 0 || sameTurnStreak < maxSameTurn) return pool
+        const filtered = new Map<string, { point: Point; degree: number }>()
+        for (const [key, candidate] of pool) {
+            const nextDirection = {row: candidate.point.row - current.row, col: candidate.point.col - current.col}
+            if (turnType(lastDirection, nextDirection) !== lastTurn) filtered.set(key, candidate)
+        }
+        return filtered.size > 0 ? filtered : pool
+    }
+
+    while (path.length < targetLength) {
+        const candidates = neighbours(current, rows, cols).filter((candidate) => !localVisited.has(pointKey(candidate)))
+        if (candidates.length === 0) break
+        const degrees = new Map(candidates.map((candidate) => [
+            pointKey(candidate), {point: candidate, degree: unvisitedDegree(candidate, localVisited, rows, cols)},
+        ]))
+        const best = Math.min(...[...degrees.values()].map((candidate) => candidate.degree))
+        const straightPoint = lastDirection ? {row: current.row + lastDirection.row, col: current.col + lastDirection.col} : null
+        const straightKey = straightPoint ? pointKey(straightPoint) : ''
+        const straightCandidate = degrees.get(straightKey)
+        const forceTurn = lastDirection !== null && stepsSinceTurn >= maxStraight && straightCandidate !== undefined
+        const forceStraight = lastDirection !== null && stepsSinceTurn < minStraight && straightCandidate !== undefined
+        let next: Point
+        if (forceTurn) {
+            const turnPool = new Map([...degrees].filter(([key]) => key !== straightKey))
+            next = turnPool.size > 0 ? pickByDegree(filterSpiral(turnPool)) : straightCandidate!.point
+        } else if (forceStraight) {
+            next = straightCandidate!.point
+        } else if (straightCandidate && straightCandidate.degree <= best + degreeTolerance && random.random() < straightBias) {
+            next = straightCandidate.point
+        } else {
+            const turnOnly = new Map([...degrees].filter(([key]) => key !== straightKey))
+            const merged = turnOnly.size > 0 ? filterSpiral(turnOnly) : new Map<string, { point: Point; degree: number }>()
+            if (straightCandidate) merged.set(straightKey, straightCandidate)
+            next = pickByDegree(merged.size > 0 ? merged : filterSpiral(degrees))
+        }
+        const newDirection = {row: next.row - current.row, col: next.col - current.col}
+        if (lastDirection && vectorKey(newDirection) === vectorKey(lastDirection)) {
+            stepsSinceTurn += 1
+        } else {
+            const currentTurn = lastDirection ? turnType(lastDirection, newDirection) : 0
+            sameTurnStreak = currentTurn !== 0 && currentTurn === lastTurn ? sameTurnStreak + 1 : currentTurn !== 0 ? 1 : 0
+            lastTurn = currentTurn
+            stepsSinceTurn = 1
+        }
+        lastDirection = newDirection
+        path.push(next)
+        localVisited.add(pointKey(next))
+        current = next
+    }
+    return path
+}
+
+const generatePaths = (rows: number, cols: number, targetPathCount: number, random: RandomSource): Path[] => {
+    const visited = new Set<string>()
+    // Python enumerates (x, y), so preserve its x-major order after mapping to (row, col).
+    const allPoints = Array.from({length: cols}, (_, col) =>
+        Array.from({length: rows}, (_, row) => ({row, col}))).flat()
+    const center = {row: (rows - 1) / 2, col: (cols - 1) / 2}
+    const paths: Path[] = []
+    const phaseLongCount = Math.max(6, Math.floor(targetPathCount * 0.22))
+
+    const pickStart = (): Point | null => {
+        const candidates = allPoints.filter((point) => !visited.has(pointKey(point)))
+        if (candidates.length === 0) return null
+        const frontier = candidates.filter((point) => neighbours(point, rows, cols).some((next) => visited.has(pointKey(next))))
+        const pool = frontier.length > 0 ? frontier : candidates
+        pool.sort((left, right) => distance2(left, center) - distance2(right, center))
+        return pool[0] ?? null
+    }
+
+    while (visited.size < allPoints.length) {
+        const start = pickStart()
+        if (!start) break
+        const remaining = allPoints.length - visited.size
+        const remainingPaths = Math.max(1, targetPathCount - paths.length)
+        const averageLength = Math.max(2, remaining / remainingPaths)
+        const pathIndex = paths.length
+        const targetLength = pathIndex < phaseLongCount
+            ? Math.max(6, Math.floor(averageLength * random.uniform(1.6, 2.6)))
+            : Math.max(2, Math.floor(averageLength * random.uniform(0.5, 1.3)))
+        const path = pathIndex < phaseLongCount
+            ? walk(start, visited, rows, cols, targetLength, random, 2, 4, 0.85, 1, 2)
+            : walk(start, visited, rows, cols, targetLength, random, 1, 3, 0.7, 1, 1)
+        for (const point of path) visited.add(pointKey(point))
+        paths.push(path)
+    }
+    return paths
+}
+
+const repairSingletons = (input: Path[], rows: number, cols: number, random: RandomSource): Path[] => {
+    const paths: Array<Path | null> = input.map((path) => [...path])
+    let changed = true
+    while (changed) {
+        changed = false
+        const owner = new Map<string, number>()
+        paths.forEach((path, index) => path?.forEach((point) => owner.set(pointKey(point), index)))
+        for (let index = 0; index < paths.length; index += 1) {
+            const path = paths[index]
+            if (!path || path.length !== 1) continue
+            const point = path[0]!
+            const shuffledNeighbours = random.shuffle(neighbours(point, rows, cols))
+            let safe: number | undefined
+            let risky: number | undefined
+            for (const neighbour of shuffledNeighbours) {
+                const otherIndex = owner.get(pointKey(neighbour))
+                const other = otherIndex === undefined ? undefined : paths[otherIndex]
+                if (!other || otherIndex === index) continue
+                if (pointKey(other[0]!) === pointKey(neighbour) && safe === undefined) safe = otherIndex
+                else if (pointKey(other.at(-1)!) === pointKey(neighbour) && risky === undefined) risky = otherIndex
+            }
+            let merged = false
+            if (safe !== undefined) {
+                paths[safe]!.unshift(point)
+                merged = true
+            } else if (risky !== undefined) {
+                paths[risky]!.push(point)
+                merged = true
+            } else {
+                for (const neighbour of shuffledNeighbours) {
+                    const otherIndex = owner.get(pointKey(neighbour))
+                    const other = otherIndex === undefined ? undefined : paths[otherIndex]
+                    if (!other || otherIndex === undefined) continue
+                    const split = other.findIndex((candidate) => pointKey(candidate) === pointKey(neighbour))
+                    if (split < 0) continue
+                    const left = other.slice(0, split + 1)
+                    const right = other.slice(split + 1)
+                    if (right.length >= 2) paths[otherIndex] = [...left, point]
+                    else if (left.length >= 2) paths[otherIndex] = [point, ...other.slice(split)]
+                    else continue
+                    paths.push(right.length >= 2 ? right : left)
+                    merged = true
+                    break
+                }
+            }
+            if (merged) {
+                paths[index] = null
+                changed = true
+                break
+            }
+        }
+    }
+    return paths.filter((path): path is Path => path !== null)
+}
+
+const adjustPathCount = (input: Path[], rows: number, cols: number, countMin: number, countMax: number, random: RandomSource): Path[] => {
+    let paths: Path[] = input.map((path) => [...path])
+    let iterations = 0
+    while (paths.length > countMax && iterations < 2000) {
+        iterations += 1
+        const endpointMap = new Map<string, Array<[number, 'head' | 'tail']>>()
+        paths.forEach((path, index) => {
+            for (const [point, side] of [[path[0], 'head'], [path.at(-1), 'tail']] as const) {
+                if (!point) continue
+                endpointMap.set(pointKey(point), [...(endpointMap.get(pointKey(point)) ?? []), [index, side]])
+            }
+        })
+        let merged = false
+        for (const index of random.shuffle(paths.map((_, pathIndex) => pathIndex))) {
+            if (paths.length <= countMax) break
+            const path = paths[index]
+            if (!path) continue
+            for (const [end, isTail] of [[path[0], false], [path.at(-1), true]] as const) {
+                if (!end) continue
+                for (const neighbour of neighbours(end, rows, cols)) {
+                    for (const [otherIndex, side] of endpointMap.get(pointKey(neighbour)) ?? []) {
+                        if (otherIndex === index) continue
+                        const other = paths[otherIndex]
+                        if (!other) continue
+                        const newPath = isTail
+                            ? side === 'head' ? [...path, ...other] : [...path, ...[...other].reverse()]
+                            : side === 'head' ? [...[...path].reverse(), ...other] : [...[...path].reverse(), ...[...other].reverse()]
+                        const joinLeft = newPath[path.length - 1]
+                        const joinRight = newPath[path.length]
+                        if (!joinLeft || !joinRight || Math.abs(joinLeft.row - joinRight.row) + Math.abs(joinLeft.col - joinRight.col) !== 1) continue
+                        if (new Set(newPath.map(pointKey)).size !== newPath.length) continue
+                        paths[index] = newPath
+                        paths[otherIndex] = []
+                        merged = true
+                        break
+                    }
+                    if (merged) break
+                }
+                if (merged) break
+            }
+            if (merged) break
+        }
+        if (!merged) break
+        paths = paths.filter((path) => path.length > 0)
+    }
+    iterations = 0
+    while (paths.length < countMin && iterations < 4000) {
+        iterations += 1
+        paths.sort((left, right) => right.length - left.length)
+        const longest = paths[0]
+        if (!longest || longest.length < 4) break
+        const midpoint = Math.floor(longest.length / 2)
+        const left = longest.slice(0, midpoint)
+        const right = longest.slice(midpoint)
+        if (left.length < 2 || right.length < 2) break
+        paths[0] = left
+        paths.push(right)
+    }
+    return paths
+}
+
+const resolveDependencyCycles = (input: Path[], rows: number, cols: number, maxOuter = 5000): Path[] => {
+    const paths: Array<Path | null> = input.map((path) => [...path])
+    const orientations = (path: Path): Array<[Point, Point]> => {
+        const tail = path.at(-1)!
+        const head = path[0]!
+        return [
+            [tail, {row: tail.row - path.at(-2)!.row, col: tail.col - path.at(-2)!.col}],
+            [head, {row: head.row - path[1]!.row, col: head.col - path[1]!.col}],
+        ]
+    }
+    const reattachStray = (index: number, excluded: ReadonlySet<number> = new Set()): void => {
+        const path = paths[index]
+        if (!path) return
+        const point = path[0]!
+        const owner = new Map<string, number>()
+        paths.forEach((candidate, candidateIndex) => candidate?.forEach((cell) => {
+            if (candidateIndex !== index) owner.set(pointKey(cell), candidateIndex)
+        }))
+        let safe: number | undefined
+        let risky: number | undefined
+        let safeExcluded: number | undefined
+        let riskyExcluded: number | undefined
+        for (const neighbour of neighbours(point, rows, cols)) {
+            const candidateIndex = owner.get(pointKey(neighbour))
+            const candidate = candidateIndex === undefined ? undefined : paths[candidateIndex]
+            if (!candidate || candidateIndex === undefined) continue
+            if (pointKey(candidate[0]!) === pointKey(neighbour)) {
+                if (excluded.has(candidateIndex)) safeExcluded ??= candidateIndex
+                else {
+                    safe = candidateIndex
+                    break
+                }
+            } else if (pointKey(candidate.at(-1)!) === pointKey(neighbour)) {
+                if (excluded.has(candidateIndex)) riskyExcluded ??= candidateIndex
+                else risky ??= candidateIndex
+            }
+        }
+        const target = safe ?? risky ?? safeExcluded ?? riskyExcluded
+        if (target === undefined) return
+        if (target === safe || target === safeExcluded) paths[target]!.unshift(point)
+        else paths[target]!.push(point)
+        paths[index] = null
+    }
+    const spliceConnect = (index: number, otherIndex: number, point: Point): number | null => {
+        const other = paths[otherIndex]
+        if (!other) return null
+        const split = other.findIndex((candidate) => pointKey(candidate) === pointKey(point))
+        if (split < 0) return null
+        const before = other.slice(0, split)
+        const after = other.slice(split + 1)
+        const extension = before.length >= after.length ? [point, ...[...before].reverse()] : [point, ...after]
+        const leftover = before.length >= after.length ? after : before
+        paths[index] = [...paths[index]!, ...extension]
+        paths[otherIndex] = leftover.length > 0 ? leftover : null
+        return leftover.length === 1 ? otherIndex : null
+    }
+    const selfSplit = (index: number, point: Point): [number | null, number | null] => {
+        const path = paths[index]!
+        const splitIndex = path.findIndex((candidate) => pointKey(candidate) === pointKey(point))
+        const split = Math.min(Math.max(splitIndex, 1), path.length - 3 >= 1 ? path.length - 3 : splitIndex)
+        const withPoint = path.slice(0, split + 1)
+        const withHead = path.slice(split + 1)
+        paths[index] = withPoint
+        const newIndex = paths.length
+        paths.push(withHead)
+        if (withHead.length === 1) return [newIndex, index]
+        if (withPoint.length === 1) return [index, newIndex]
+        return [null, null]
+    }
+    const forbiddenMerges = new Set<string>()
+    for (let outer = 0; outer < maxOuter; outer += 1) {
+        const stray = paths.findIndex((path) => path !== null && path.length < 2)
+        if (stray >= 0) {
+            reattachStray(stray)
+            continue
+        }
+        const owner = new Map<string, number>()
+        paths.forEach((path, index) => path?.forEach((point) => owner.set(pointKey(point), index)))
+        const removed = new Set<number>()
+        const remaining = new Set(paths.map((path, index) => path ? index : -1).filter((index) => index >= 0))
+        const chosenFlip = new Map<number, number>()
+        let progress = true
+        while (progress && remaining.size > 0) {
+            progress = false
+            for (const index of [...remaining]) {
+                const path = paths[index]!
+                for (const [flip, [head, direction]] of orientations(path).entries()) {
+                    const next = {row: head.row + direction.row, col: head.col + direction.col}
+                    const ownerNext = next.row >= 0 && next.row < rows && next.col >= 0 && next.col < cols ? owner.get(pointKey(next)) : undefined
+                    if (ownerNext !== index && (ownerNext === undefined || removed.has(ownerNext))) {
+                        chosenFlip.set(index, flip)
+                        removed.add(index)
+                        remaining.delete(index)
+                        progress = true
+                        break
+                    }
+                }
+            }
+        }
+        if (remaining.size === 0) {
+            for (const [index, flip] of chosenFlip) if (flip === 1) paths[index] = [...paths[index]!].reverse()
+            return paths.filter((path): path is Path => path !== null)
+        }
+        let selected: number | undefined
+        for (const candidate of remaining) {
+            const path = paths[candidate]!
+            const head = path.at(-1)!
+            const direction = {row: head.row - path.at(-2)!.row, col: head.col - path.at(-2)!.col}
+            const next = {row: head.row + direction.row, col: head.col + direction.col}
+            const other = owner.get(pointKey(next))
+            const mergeKey = other === undefined ? '' : `${Math.min(candidate, other)}:${Math.max(candidate, other)}`
+            if (!forbiddenMerges.has(mergeKey)) {
+                selected = candidate
+                break
+            }
+        }
+        selected ??= [...remaining][0]
+        if (selected === undefined) break
+        const selectedPath = paths[selected]!
+        const head = selectedPath.at(-1)!
+        const direction = {row: head.row - selectedPath.at(-2)!.row, col: head.col - selectedPath.at(-2)!.col}
+        const next = {row: head.row + direction.row, col: head.col + direction.col}
+        const otherIndex = owner.get(pointKey(next))
+        if (otherIndex === selected) {
+            const newIndex = paths.length
+            const [strayIndex, excludeIndex] = selfSplit(selected, next)
+            forbiddenMerges.add(`${Math.min(selected, newIndex)}:${Math.max(selected, newIndex)}`)
+            if (strayIndex !== null) reattachStray(strayIndex, new Set([excludeIndex!]))
+        } else if (otherIndex !== undefined) {
+            const strayIndex = spliceConnect(selected, otherIndex, next)
+            if (strayIndex !== null) reattachStray(strayIndex, new Set([selected]))
+        }
+    }
+    return paths.filter((path): path is Path => path !== null)
+}
+
+const validate = (paths: Path[], rows: number, cols: number): void => {
+    const seen = new Set<string>()
+    for (const path of paths) {
+        if (path.length < 2) throw new Error('Generated path is shorter than two cells')
+        for (let index = 1; index < path.length; index += 1) {
+            const previous = path[index - 1]!
+            const current = path[index]!
+            if (Math.abs(current.row - previous.row) + Math.abs(current.col - previous.col) !== 1) throw new Error('Generated path has an invalid step')
+        }
+        for (const point of path) {
+            const key = pointKey(point)
+            if (seen.has(key)) throw new Error(`Generated paths overlap at ${key}`)
+            seen.add(key)
+        }
+    }
+    if (seen.size !== rows * cols) throw new Error(`Generated board has ${rows * cols - seen.size} uncovered cells`)
+    const {stuck} = solveBoard(paths, rows, cols)
+    if (stuck.length > 0) throw new Error(`Generated board has ${stuck.length} stuck paths`)
+}
+
+export const verifyGeneratedPaths = (paths: Path[], rows: number, cols: number): boolean => {
+    const owner = new Map<string, number>()
+    paths.forEach((path, index) => path.forEach((point) => owner.set(pointKey(point), index)))
+    const removed = new Set<number>()
+    const remaining = new Set(paths.map((_, index) => index))
+    let progress = true
+    while (progress && remaining.size > 0) {
+        progress = false
+        for (const index of [...remaining]) {
+            const path = paths[index]!
+            if (path.length < 2) {
+                removed.add(index)
+                remaining.delete(index)
+                progress = true
+                continue
+            }
+            const tail = path.at(-1)!
+            const first = path[0]!
+            const options: Array<[Point, Point]> = [
+                [tail, {row: tail.row - path.at(-2)!.row, col: tail.col - path.at(-2)!.col}],
+                [first, {row: first.row - path[1]!.row, col: first.col - path[1]!.col}],
+            ]
+            for (const [head, direction] of options) {
+                const next = {row: head.row + direction.row, col: head.col + direction.col}
+                const ownerNext = next.row >= 0 && next.row < rows && next.col >= 0 && next.col < cols ? owner.get(pointKey(next)) : undefined
+                if (ownerNext !== index && (ownerNext === undefined || removed.has(ownerNext))) {
+                    removed.add(index)
+                    remaining.delete(index)
+                    progress = true
+                    break
+                }
+            }
+        }
+    }
+    return remaining.size === 0
+}
+
+const pickExits = (paths: Path[], rows: number, cols: number, exitCount: number, random: RandomSource): Array<{ pathIndex: number; point: Point; direction: Direction }> => {
+    const candidates = paths.flatMap((path, pathIndex) => [path[0], path.at(-1)].flatMap((point) => {
+        if (!point) return []
+        const direction: Direction | null = point.col === 0 ? 'left' : point.col === cols - 1 ? 'right' : point.row === 0 ? 'up' : point.row === rows - 1 ? 'down' : null
+        return direction ? [{pathIndex, point, direction}] : []
+    }))
+    const chosen: Array<{ pathIndex: number; point: Point; direction: Direction }> = []
+    const usedPaths = new Set<number>()
+    for (const candidate of random.shuffle(candidates)) {
+        if (chosen.length >= exitCount) break
+        if (usedPaths.has(candidate.pathIndex)) continue
+        chosen.push(candidate)
+        usedPaths.add(candidate.pathIndex)
+    }
+    return chosen
+}
+
+const buildCandidate = (levelIndex: number, random: RandomSource, seed: number): Level | null => {
+    const profile = getLevelProfile(levelIndex)
+    let paths = generatePaths(profile.rows, profile.cols, profile.arrowCount, random)
+    paths = repairSingletons(paths, profile.rows, profile.cols, random)
+    paths = adjustPathCount(paths, profile.rows, profile.cols, PATH_COUNT_MIN, PATH_COUNT_MAX, random)
+    paths = resolveDependencyCycles(paths, profile.rows, profile.cols)
+    if (!(PATH_COUNT_MIN <= paths.length && paths.length <= PATH_COUNT_MAX)) {
+        paths = adjustPathCount(paths, profile.rows, profile.cols, PATH_COUNT_MIN, PATH_COUNT_MAX, random)
+        paths = resolveDependencyCycles(paths, profile.rows, profile.cols)
+    }
+    validate(paths, profile.rows, profile.cols)
+    if (paths.length < PATH_COUNT_MIN || paths.length > PATH_COUNT_MAX) return null
+    pickExits(paths, profile.rows, profile.cols, EXIT_COUNT, random)
+    const arrows: Arrow[] = paths.map((path, index) => {
+        const head = path.at(-1)!
+        const previous = path.at(-2)!
+        return {
+            id: `arrow-${index + 1}`,
+            color: COLORS[index % COLORS.length] ?? '#ffffff',
+            cells: path.map((point) => ({...point})),
+            direction: directionFromVector({row: head.row - previous.row, col: head.col - previous.col}),
+            head: {...head},
+            alive: true,
+            highlighted: false,
+        }
     })
-    const next = candidates[0]
-    if (!next) break
-    previousDirection = directionBetween(current, next)
-    fromHead.push(next)
-    used.add(pointKey(next))
-  }
-
-  return fromHead.reverse()
-}
-
-const findPathCandidate = (
-  playableCells: Point[],
-  playable: Set<string>,
-  remaining: Set<string>,
-  pointByKey: Map<string, Point>,
-  directionCounts: Record<Direction, number>,
-  targetArrowCount: number,
-  pathsCreated: number,
-  maximumPathLength: number,
-  random: () => number,
-): PathCandidate | null => {
-  const exitOptions = playableCells.flatMap((head) => {
-    if (!remaining.has(pointKey(head))) return []
-    return CARDINAL_DIRECTIONS.filter((direction) => {
-      const previous = translate(head, DIRECTION_VECTOR[direction], -1)
-      return remaining.has(pointKey(previous)) && hasClearExit(head, direction, playable, remaining)
-    }).map((direction) => ({ head, direction, noise: random() }))
-  })
-
-  const orderedOptions = exitOptions.sort((left, right) =>
-    directionCounts[left.direction] - directionCounts[right.direction] || left.noise - right.noise,
-  )
-  const attempts = Math.min(orderedOptions.length * 4, 160)
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const option = orderedOptions[attempt % orderedOptions.length]
-    if (!option) break
-    const desiredLength = targetPathLength(
-      remaining.size,
-      pathsCreated,
-      targetArrowCount,
-      maximumPathLength,
-      random,
-    )
-    const cells = buildPathFromExit(
-      option.head,
-      option.direction,
-      desiredLength,
-      remaining,
-      random,
-    )
-    if (cells.length < 2) continue
-    const nextRemaining = new Set(remaining)
-    for (const cell of cells) nextRemaining.delete(pointKey(cell))
-    if (!isValidRemainingShape(nextRemaining, pointByKey)) continue
-    return { cells, direction: option.direction }
-  }
-
-  // Short boundary paths are a stable fallback when a random long path would
-  // split the remaining cells into isolated pockets.
-  for (const option of orderedOptions) {
-    for (const length of [2, 3, 4]) {
-      const cells = buildPathFromExit(option.head, option.direction, length, remaining, random)
-      if (cells.length < 2) continue
-      const nextRemaining = new Set(remaining)
-      for (const cell of cells) nextRemaining.delete(pointKey(cell))
-      if (!isValidRemainingShape(nextRemaining, pointByKey)) continue
-      return { cells, direction: option.direction }
-    }
-  }
-  return null
-}
-
-const buildCandidate = (levelIndex: number, seed: number, targetArrowCount: number): Level | null => {
-  const profile = getLevelProfile(levelIndex)
-  const random = createRandom(seed)
-  const playableCells = cellsForShape(createShape(profile.rows, profile.cols, random))
-  const playable = new Set(playableCells.map(pointKey))
-  const remaining = new Set(playable)
-  const pointByKey = new Map(playableCells.map((point) => [pointKey(point), point]))
-  const directionCounts = Object.fromEntries(CARDINAL_DIRECTIONS.map((direction) => [direction, 0])) as Record<Direction, number>
-  const extractionOrder: PathCandidate[] = []
-  const maximumPathLength = profile.difficulty === 'hard' ? 16 : 12
-
-  while (remaining.size > 0 && extractionOrder.length <= playableCells.length / 2) {
-    const candidate = findPathCandidate(
-      playableCells,
-      playable,
-      remaining,
-      pointByKey,
-      directionCounts,
-      targetArrowCount,
-      extractionOrder.length,
-      maximumPathLength,
-      random,
-    )
-    if (!candidate) return null
-    extractionOrder.push(candidate)
-    directionCounts[candidate.direction] += 1
-    for (const cell of candidate.cells) remaining.delete(pointKey(cell))
-  }
-  if (remaining.size > 0 || extractionOrder.length < targetArrowCount * 0.7) return null
-
-  const arrows: Arrow[] = [...extractionOrder].reverse().map((candidate, index) => {
-    const head = candidate.cells[candidate.cells.length - 1]
-    if (!head) throw new Error('Generated arrow is missing its head')
     return {
-      id: `arrow-${index + 1}`,
-      color: COLORS[index % COLORS.length] ?? '#ffffff',
-      cells: candidate.cells,
-      direction: candidate.direction,
-      head: { ...head },
-      alive: true,
-      highlighted: false,
+        id: `level-${levelIndex + 1}`,
+        difficulty: profile.difficulty,
+        rows: profile.rows,
+        cols: profile.cols,
+        arrows,
+        playableCells: Array.from({length: profile.rows * profile.cols}, (_, index) => ({row: Math.floor(index / profile.cols), col: index % profile.cols})),
+        timeLimitSec: profile.timeLimitSec,
+        seed,
     }
-  })
-
-  return {
-    id: `level-${levelIndex + 1}`,
-    difficulty: profile.difficulty,
-    rows: profile.rows,
-    cols: profile.cols,
-    arrows,
-    playableCells,
-    timeLimitSec: profile.timeLimitSec,
-    seed,
-  }
-}
-
-const followsConstructedSolution = (level: Level): boolean => {
-  const candidate = cloneLevel(level)
-  for (let index = candidate.arrows.length - 1; index >= 0; index -= 1) {
-    const arrow = candidate.arrows[index]
-    if (!arrow || !canArrowExit(candidate, arrow.id)) return false
-    arrow.alive = false
-  }
-  return true
 }
 
 export const generateLevel = (levelIndex: number, requestedSeed = seedForLevel(levelIndex)): Level => {
-  const profile = getLevelProfile(levelIndex)
-  for (let retry = 0; retry < 64; retry += 1) {
-    const seed = (requestedSeed + retry * 0x9e3779b9) >>> 0
-    const candidate = buildCandidate(levelIndex, seed, profile.arrowCount)
-    if (!candidate || !followsConstructedSolution(candidate)) continue
-    const result = solveLevel(candidate)
-    if (result.solvable && result.solution.length === candidate.arrows.length) return candidate
-  }
-  throw new Error(`Unable to generate a solvable level for index ${levelIndex}`)
+    const random = createRandom(requestedSeed)
+    let lastError: unknown = null
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+        try {
+            const candidate = buildCandidate(levelIndex, random, requestedSeed)
+            if (candidate) return candidate
+        } catch (error) {
+            lastError = error
+        }
+    }
+    const detail = lastError instanceof Error ? `: ${lastError.message}` : ''
+    throw new Error(`Unable to generate a solvable level for index ${levelIndex}${detail}`)
 }

@@ -1,33 +1,33 @@
 :root {
-  color-scheme: dark;
-  font-family: Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-synthesis: none;
-  --bg: #11151a;
-  --surface: #191f26;
-  --surface-raised: #222a33;
-  --line: #34404c;
-  --text: #f5f7f8;
-  --muted: #98a4af;
-  --accent: #d9ff58;
-  --accent-ink: #151a0c;
-  --danger: #ff6467;
-  --cyan: #5ce1d2;
-  --focus: #f5f7f8;
-  --radius: 8px;
-  --shadow: 0 18px 50px rgb(0 0 0 / 24%);
+    color-scheme: dark;
+    font-family: Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-synthesis: none;
+    --bg: #11151a;
+    --surface: #191f26;
+    --surface-raised: #222a33;
+    --line: #34404c;
+    --text: #f5f7f8;
+    --muted: #98a4af;
+    --accent: #d9ff58;
+    --accent-ink: #151a0c;
+    --danger: #ff6467;
+    --cyan: #5ce1d2;
+    --focus: #f5f7f8;
+    --radius: 8px;
+    --shadow: 0 18px 50px rgb(0 0 0 / 24%);
 }
 
 :root[data-theme='light'] {
-  color-scheme: light;
-  --bg: #eef1f3;
-  --surface: #ffffff;
-  --surface-raised: #f5f7f8;
-  --line: #ced5da;
-  --text: #14191e;
-  --muted: #65717b;
-  --accent: #b8eb25;
-  --accent-ink: #12170a;
-  --danger: #d83f45;
-  --cyan: #168f85;
-  --focus: #14191e;
+    color-scheme: light;
+    --bg: #eef1f3;
+    --surface: #ffffff;
+    --surface-raised: #f5f7f8;
+    --line: #ced5da;
+    --text: #14191e;
+    --muted: #65717b;
+    --accent: #b8eb25;
+    --accent-ink: #12170a;
+    --danger: #d83f45;
+    --cyan: #168f85;
+    --focus: #14191e;
 }

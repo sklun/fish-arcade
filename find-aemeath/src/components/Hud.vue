@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { Heart, Pause } from '@lucide/vue'
+<script lang="ts" setup>
+import {Heart, Pause} from '@lucide/vue'
 
 defineProps<{
   levelNumber: number
@@ -30,17 +30,17 @@ const formatTime = (seconds: number): string => {
       <strong :class="{ 'hud__hard': difficulty === 'hard' }">{{ difficulty === 'hard' ? '困难' : '普通' }}</strong>
     </div>
     <div class="hud__stats">
-      <span class="hud-stat" aria-label="已找到目标">
+      <span aria-label="已找到目标" class="hud-stat">
         <b>{{ foundCount }}</b><small>/ {{ targetCount }}</small>
       </span>
-      <span class="hud-stat" aria-label="本关用时">
+      <span aria-label="本关用时" class="hud-stat">
         <b>{{ formatTime(elapsedSeconds) }}</b>
       </span>
-      <span class="hud-lives" aria-label="剩余生命">
-        <Heart v-for="index in 3" :key="index" :size="17" :fill="index <= lives ? 'currentColor' : 'none'" :class="{ 'hud-lives__empty': index > lives }" aria-hidden="true" />
+      <span aria-label="剩余生命" class="hud-lives">
+        <Heart v-for="index in 3" :key="index" :class="{ 'hud-lives__empty': index > lives }" :fill="index <= lives ? 'currentColor' : 'none'" :size="17" aria-hidden="true"/>
       </span>
-      <button class="icon-button" type="button" aria-label="暂停" title="暂停" @click="$emit('pause')">
-        <Pause :size="19" aria-hidden="true" />
+      <button aria-label="暂停" class="icon-button" title="暂停" type="button" @click="$emit('pause')">
+        <Pause :size="19" aria-hidden="true"/>
       </button>
     </div>
   </header>

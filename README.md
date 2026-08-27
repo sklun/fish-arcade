@@ -2,11 +2,11 @@
 
 Vue 3 小游戏集合，由一个 Web 入口统一代理：
 
-| 目录 | 用途 | 访问路径 |
-| --- | --- | --- |
-| `web` | 游戏目录与反向代理 | `/` |
-| `arrow` | 箭序（暂不可用：棋盘生成算法尚未解决） | `/games/arrow/game` |
-| `find-aemeath` | 寻找爱弥斯 | `/games/find-aemeath/game` |
+| 目录           | 用途                                   | 访问路径                   |
+|----------------|----------------------------------------|----------------------------|
+| `web`          | 游戏目录与反向代理                     | `/`                        |
+| `arrow`        | 箭序（暂不可用：棋盘生成算法尚未解决） | `/games/arrow/game`        |
+| `find-aemeath` | 寻找爱弥斯                             | `/games/find-aemeath/game` |
 
 游戏规则见 [Arrow 说明](arrow/arrow.md) 和 [寻找爱弥斯规则摘要](find-aemeath/docs/rules-summary.md)。
 

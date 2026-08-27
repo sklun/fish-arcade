@@ -1,0 +1,19 @@
+services:
+  arrow-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - arrow-test-node-modules:/workspace/node_modules
+      - arrow-test-dist:/workspace/dist
+      - arrow-test-playwright-report:/workspace/playwright-report
+      - arrow-test-results:/workspace/test-results
+    command: [ "npm", "run", "test:unit" ]
+
+volumes:
+  arrow-test-node-modules:
+  arrow-test-dist:
+  arrow-test-playwright-report:
+  arrow-test-results:

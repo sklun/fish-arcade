@@ -10,65 +10,65 @@ readonly LOCAL_PROJECT_ROOT
 readonly ENV_FILE="${LOCAL_PROJECT_ROOT}/.env"
 
 if [[ -f "${ENV_FILE}" ]]; then
-	set -a
-	# shellcheck disable=SC1090
-	. "${ENV_FILE}"
-	set +a
+  set -a
+  # shellcheck disable=SC1090
+  . "${ENV_FILE}"
+  set +a
 fi
 
 readonly REMOTE_HOST="${FISH_REMOTE_HOST:?Set FISH_REMOTE_HOST in ${ENV_FILE} (copy .env.example first)}"
 readonly REMOTE_SOURCE_DIR="${FISH_REMOTE_SOURCE_DIR:?Set FISH_REMOTE_SOURCE_DIR in ${ENV_FILE} (copy .env.example first)}"
 readonly REMOTE_STACK_DIR="${FISH_REMOTE_STACK_DIR:?Set FISH_REMOTE_STACK_DIR in ${ENV_FILE} (copy .env.example first)}"
 readonly -a RSYNC_EXCLUDES=(
-	".git/"
-	".env"
-	".env.*"
-	".DS_Store"
-	"node_modules/"
-	"dist/"
-	"test-results/"
-	"playwright-report/"
-	"temp/"
-	"AGENT.md"
-	"AGENTS.md"
-	"*.rules"
+  ".git/"
+  ".env"
+  ".env.*"
+  ".DS_Store"
+  "node_modules/"
+  "dist/"
+  "test-results/"
+  "playwright-report/"
+  "temp/"
+  "AGENT.md"
+  "AGENTS.md"
+  "*.rules"
 )
 
 fail() {
-	printf '%s\n' "- $*" >&2
-	exit 1
+  printf '%s\n' "- $*" >&2
+  exit 1
 }
 
 require_command() {
-	local command_name=$1
-	command -v "${command_name}" >/dev/null 2>&1 || fail "Missing local command: ${command_name}"
+  local command_name=$1
+  command -v "${command_name}" >/dev/null 2>&1 || fail "Missing local command: ${command_name}"
 }
 
 run_remote_shell() {
-	local remote_command=$1
+  local remote_command=$1
 
-	# Quote the complete command as one argument to the remote interactive shell.
-	ssh "${REMOTE_HOST}" "zsh -lic $(printf '%q' "${remote_command}")"
+  # Quote the complete command as one argument to the remote interactive shell.
+  ssh "${REMOTE_HOST}" "zsh -lic $(printf '%q' "${remote_command}")"
 }
 
 remote_compose() {
-	local compose_command=$1
-	local remote_command
+  local compose_command=$1
+  local remote_command
 
-	# Pass the local .env values into the target VM through env(1). The values
-	# are not persisted in the remote Compose directory.
-	printf -v remote_command 'cd %q && of env FISH_SOURCE_DIR=%q WEB_PORT=%q docker compose %s' \
-		"${REMOTE_STACK_DIR}" "${REMOTE_SOURCE_DIR}" "${WEB_PORT:-8080}" "${compose_command}"
-	run_remote_shell "${remote_command}"
+  # Pass the local .env values into the target VM through env(1). The values
+  # are not persisted in the remote Compose directory.
+  printf -v remote_command 'cd %q && of env FISH_SOURCE_DIR=%q WEB_PORT=%q docker compose %s' \
+    "${REMOTE_STACK_DIR}" "${REMOTE_SOURCE_DIR}" "${WEB_PORT:-8080}" "${compose_command}"
+  run_remote_shell "${remote_command}"
 }
 
 on_error() {
-	local exit_code=$?
-	local line_number=$1
+  local exit_code=$?
+  local line_number=$1
 
-	printf '%s\n' "- Deployment failed at script line ${line_number} (exit ${exit_code})." >&2
-	printf '%s\n' "| Inspect remote status with the configured Compose host and directory." >&2
-	exit "${exit_code}"
+  printf '%s\n' "- Deployment failed at script line ${line_number} (exit ${exit_code})." >&2
+  printf '%s\n' "| Inspect remote status with the configured Compose host and directory." >&2
+  exit "${exit_code}"
 }
 
 trap 'on_error ${LINENO}' ERR
@@ -83,7 +83,7 @@ require_command ssh
 
 rsync_arguments=(-az --delete --itemize-changes)
 for exclude_pattern in "${RSYNC_EXCLUDES[@]}"; do
-	rsync_arguments+=(--exclude "${exclude_pattern}")
+  rsync_arguments+=(--exclude "${exclude_pattern}")
 done
 
 printf '%s\n' "+ Deployment preview"
@@ -93,29 +93,29 @@ printf '%s\n' "| Remote Compose stack: ${REMOTE_HOST}:${REMOTE_STACK_DIR}"
 printf '%s\n' "| No local Docker command will be executed."
 
 rsync "${rsync_arguments[@]}" --dry-run \
-	"${LOCAL_PROJECT_ROOT}/" \
-	"${REMOTE_HOST}:${REMOTE_SOURCE_DIR}/"
+  "${LOCAL_PROJECT_ROOT}/" \
+  "${REMOTE_HOST}:${REMOTE_SOURCE_DIR}/"
 
 printf '%s\n' "+ Remote source sync"
 # The configured paths intentionally expand on the local side for rsync targets.
 printf -v remote_command 'mkdir -p %q %q' "${REMOTE_SOURCE_DIR}" "${REMOTE_STACK_DIR}"
 run_remote_shell "${remote_command}"
 rsync "${rsync_arguments[@]}" \
-	"${LOCAL_PROJECT_ROOT}/" \
-	"${REMOTE_HOST}:${REMOTE_SOURCE_DIR}/"
+  "${LOCAL_PROJECT_ROOT}/" \
+  "${REMOTE_HOST}:${REMOTE_SOURCE_DIR}/"
 printf '%s\n' "| Local project synchronized to the remote build source."
 
 # Public platform artwork must be readable by the unprivileged Nginx worker.
 # Repair permissions on existing remote copies as well as freshly synced files.
 printf -v remote_command 'find %q -type f -exec chmod 0644 {} +' \
-	"${REMOTE_SOURCE_DIR}/web/public/games"
+  "${REMOTE_SOURCE_DIR}/web/public/games"
 run_remote_shell "${remote_command}"
 printf '%s\n' "| Platform artwork permissions normalized."
 
 printf '%s\n' "+ Remote Compose configuration"
 # The remote stack receives a copy; the repository root remains the only source config.
 printf -v remote_command 'install -m 0644 %q %q' \
-	"${REMOTE_SOURCE_DIR}/compose.yaml" "${REMOTE_STACK_DIR}/compose.yaml"
+  "${REMOTE_SOURCE_DIR}/compose.yaml" "${REMOTE_STACK_DIR}/compose.yaml"
 run_remote_shell "${remote_command}"
 remote_compose "config --quiet"
 printf '%s\n' "| Remote Compose configuration is valid."

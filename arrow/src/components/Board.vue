@@ -1,8 +1,8 @@
-<script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+<script lang="ts" setup>
+import {computed, onBeforeUnmount, ref, watch} from 'vue'
 
-import type { ArrowAnimation } from '@/app/stores/game'
-import { DIRECTION_VECTOR, playableCellsFor, type Arrow, type Direction, type Level, type Point } from '@/game/model'
+import type {ArrowAnimation} from '@/app/stores/game'
+import {type Arrow, type Direction, DIRECTION_VECTOR, type Level, playableCellsFor, type Point} from '@/game/model'
 
 const props = defineProps<{
   level: Level
@@ -37,23 +37,23 @@ const stopAnimation = (): void => {
 }
 
 watch(
-  () => props.animation,
-  (animation) => {
-    stopAnimation()
-    animationProgress.value = 0
-    if (!animation || typeof window === 'undefined') return
-    const startedAt = performance.now()
-    const duration = animation.kind === 'exit' ? 320 : 240
-    const tick = (now: number): void => {
-      const progress = Math.min(1, (now - startedAt) / duration)
-      animationProgress.value = progress
-      if (progress < 1 && props.animation?.arrowId === animation.arrowId) {
-        animationFrameId = window.requestAnimationFrame(tick)
+    () => props.animation,
+    (animation) => {
+      stopAnimation()
+      animationProgress.value = 0
+      if (!animation || typeof window === 'undefined') return
+      const startedAt = performance.now()
+      const duration = animation.kind === 'exit' ? 320 : 240
+      const tick = (now: number): void => {
+        const progress = Math.min(1, (now - startedAt) / duration)
+        animationProgress.value = progress
+        if (progress < 1 && props.animation?.arrowId === animation.arrowId) {
+          animationFrameId = window.requestAnimationFrame(tick)
+        }
       }
-    }
-    animationFrameId = window.requestAnimationFrame(tick)
-  },
-  { immediate: true },
+      animationFrameId = window.requestAnimationFrame(tick)
+    },
+    {immediate: true},
 )
 
 onBeforeUnmount(stopAnimation)
@@ -74,11 +74,11 @@ const displayCells = (arrow: Arrow): Point[] => {
   const states = [arrow.cells, ...animation.frames]
   const lastIndex = states.length - 1
   const travelProgress =
-    animation.kind === 'collision'
-      ? animationProgress.value < 0.72
-        ? animationProgress.value / 0.72
-        : (1 - animationProgress.value) / 0.28
-      : animationProgress.value
+      animation.kind === 'collision'
+          ? animationProgress.value < 0.72
+              ? animationProgress.value / 0.72
+              : (1 - animationProgress.value) / 0.28
+          : animationProgress.value
   const position = Math.max(0, Math.min(lastIndex, travelProgress * lastIndex))
   const lowerIndex = Math.floor(position)
   const upperIndex = Math.min(lastIndex, lowerIndex + 1)
@@ -101,62 +101,62 @@ const selectArrow = (arrowId: string): void => {
 
 <template>
   <div
-    class="board-shell"
-    :class="{ 'board-shell--decorative': decorative, 'board-shell--shaped': Boolean(level.playableCells) }"
-    :style="{ aspectRatio: `${level.cols + 0.2} / ${level.rows + 0.2}` }"
+      :class="{ 'board-shell--decorative': decorative, 'board-shell--shaped': Boolean(level.playableCells) }"
+      :style="{ aspectRatio: `${level.cols + 0.2} / ${level.rows + 0.2}` }"
+      class="board-shell"
   >
     <svg
-      class="board"
-      :viewBox="`-0.6 -0.6 ${level.cols + 0.2} ${level.rows + 0.2}`"
-      :aria-label="decorative ? undefined : `${level.rows} 行 ${level.cols} 列箭头棋盘`"
-      :aria-hidden="decorative ? 'true' : undefined"
-      preserveAspectRatio="xMidYMid meet"
+        :aria-hidden="decorative ? 'true' : undefined"
+        :aria-label="decorative ? undefined : `${level.rows} 行 ${level.cols} 列箭头棋盘`"
+        :viewBox="`-0.6 -0.6 ${level.cols + 0.2} ${level.rows + 0.2}`"
+        class="board"
+        preserveAspectRatio="xMidYMid meet"
     >
-      <g class="board__region" aria-hidden="true">
+      <g aria-hidden="true" class="board__region">
         <rect
-          v-for="cell in playableCells"
-          :key="`surface-${cell.row}-${cell.col}`"
-          :x="cell.col - 0.5"
-          :y="cell.row - 0.5"
-          width="1"
-          height="1"
-          class="board__surface"
+            v-for="cell in playableCells"
+            :key="`surface-${cell.row}-${cell.col}`"
+            :x="cell.col - 0.5"
+            :y="cell.row - 0.5"
+            class="board__surface"
+            height="1"
+            width="1"
         />
         <circle
-          v-for="cell in playableCells"
-          :key="`grid-${cell.row}-${cell.col}`"
-          :cx="cell.col"
-          :cy="cell.row"
-          r=".055"
-          class="board__grid-dot"
+            v-for="cell in playableCells"
+            :key="`grid-${cell.row}-${cell.col}`"
+            :cx="cell.col"
+            :cy="cell.row"
+            class="board__grid-dot"
+            r=".055"
         />
       </g>
 
       <g
-        v-for="arrow in aliveArrows"
-        :key="arrow.id"
-        class="board-arrow"
-        :class="{
+          v-for="arrow in aliveArrows"
+          :key="arrow.id"
+          :aria-label="decorative ? undefined : `箭头 ${arrow.id}，方向${directionLabels[arrow.direction]}`"
+          :class="{
           'board-arrow--highlighted': arrow.highlighted,
           'board-arrow--collision': animation?.arrowId === arrow.id && animation.kind === 'collision',
           'board-arrow--exiting': animation?.arrowId === arrow.id && animation.kind === 'exit',
           'board-arrow--disabled': disabled,
         }"
-        :style="{ '--arrow-color': arrow.color }"
-        :role="decorative ? undefined : 'button'"
-        :tabindex="decorative || disabled ? -1 : 0"
-        :aria-label="decorative ? undefined : `箭头 ${arrow.id}，方向${directionLabels[arrow.direction]}`"
-        :data-arrow-id="arrow.id"
-        @click="selectArrow(arrow.id)"
-        @keydown.enter.prevent="selectArrow(arrow.id)"
-        @keydown.space.prevent="selectArrow(arrow.id)"
+          :data-arrow-id="arrow.id"
+          :role="decorative ? undefined : 'button'"
+          :style="{ '--arrow-color': arrow.color }"
+          :tabindex="decorative || disabled ? -1 : 0"
+          class="board-arrow"
+          @click="selectArrow(arrow.id)"
+          @keydown.enter.prevent="selectArrow(arrow.id)"
+          @keydown.space.prevent="selectArrow(arrow.id)"
       >
-        <polyline class="board-arrow__hit" :points="pathPoints(displayCells(arrow))" />
-        <polyline class="board-arrow__line" :points="pathPoints(displayCells(arrow))" />
+        <polyline :points="pathPoints(displayCells(arrow))" class="board-arrow__hit"/>
+        <polyline :points="pathPoints(displayCells(arrow))" class="board-arrow__line"/>
         <path
-          class="board-arrow__head"
-          d="M .38 0 L -.3 -.3 L -.3 .3 Z"
-          :transform="headTransform(arrow, displayCells(arrow))"
+            :transform="headTransform(arrow, displayCells(arrow))"
+            class="board-arrow__head"
+            d="M .38 0 L -.3 -.3 L -.3 .3 Z"
         />
       </g>
     </svg>

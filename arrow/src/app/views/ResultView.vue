@@ -1,8 +1,8 @@
-<script setup lang="ts">
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+<script lang="ts" setup>
+import {onMounted} from 'vue'
+import {useRouter} from 'vue-router'
 
-import { useGameStore } from '@/app/stores/game'
+import {useGameStore} from '@/app/stores/game'
 import ResultPanel from '@/components/ResultPanel.vue'
 
 const router = useRouter()
@@ -32,14 +32,14 @@ onMounted(async () => {
   <main class="result-screen">
     <span class="wordmark">ARROW <b>箭序</b></span>
     <ResultPanel
-      :success="store.status === 'success'"
-      :failure-reason="store.failureReason"
-      :level-number="store.currentLevelIndex + 1"
-      :elapsed-seconds="store.elapsedSeconds"
-      :lives="store.lives"
-      @next="next"
-      @retry="retry"
-      @home="home"
+        :elapsed-seconds="store.elapsedSeconds"
+        :failure-reason="store.failureReason"
+        :level-number="store.currentLevelIndex + 1"
+        :lives="store.lives"
+        :success="store.status === 'success'"
+        @home="home"
+        @next="next"
+        @retry="retry"
     />
   </main>
 </template>
