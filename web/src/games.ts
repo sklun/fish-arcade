@@ -35,7 +35,7 @@ export const gameCatalog: GameCatalogEntry[] = [
         image: '/games/arrow.png',
         imageAlt: '箭序游戏中由彩色箭头组成的谜题棋盘',
         artwork: 'arrow',
-        availability: {available: false, note: '棋盘生成算法尚未解决'},
+        availability: {available: true, note: '棋盘生成算法尚未解决'},
         mode: '单人',
         duration: '约 3 分钟',
         controls: '点击 / 键盘',
