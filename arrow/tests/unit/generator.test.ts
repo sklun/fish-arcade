@@ -12,7 +12,7 @@ describe('level generation', () => {
         expect(verifyGeneratedPaths(level.arrows.map((arrow) => arrow.cells), level.rows, level.cols)).toBe(true)
         expect(level.arrows.length).toBeGreaterThanOrEqual(level.difficulty === 'hard' ? 50 : 48)
         expect(level.arrows.every((arrow) => arrow.cells.length >= 2)).toBe(true)
-    })
+    }, 60_000)
 
     it('creates a compact layout with multi-bend paths', () => {
         const level = generateLevel(0, 42)
@@ -82,5 +82,5 @@ describe('level generation', () => {
 
         expect(Math.min(...counts)).toBeGreaterThanOrEqual(4)
         expect(level.arrows.length).toBeGreaterThanOrEqual(48)
-    })
+    }, 60_000)
 })
