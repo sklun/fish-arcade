@@ -107,6 +107,32 @@ describe('aemeath game store', () => {
         expect(markable.slice(1).every((cell) => cell.status === 'flagged')).toBe(true)
         expect(store.knownTargetMarkableCount).toBe(0)
     })
+
+    it('hints a player-marked final target so the level remains recoverable', async () => {
+        const store = useAemeathStoreForTest()
+        const targets = store.cells.filter((cell) => cell.hasTarget)
+        const remainingTarget = targets.at(-1)
+        expect(remainingTarget).toBeDefined()
+        if (!remainingTarget) return
+
+        for (const target of targets.slice(0, -1)) {
+            expect(await store.revealCell(target)).toBe('target')
+        }
+        for (const cell of store.cells.filter((candidate) => candidate.status === 'hidden')) {
+            store.markCell(cell)
+        }
+
+        expect(store.remainingTargets).toBe(1)
+        expect(store.cells.some((cell) => cell.status === 'hidden')).toBe(false)
+        expect(remainingTarget.status).toBe('flagged')
+        expect(store.useHint()).toBe(`${remainingTarget.row},${remainingTarget.col}`)
+        expect(store.hintedCellKey).toBe(`${remainingTarget.row},${remainingTarget.col}`)
+
+        store.markCell(remainingTarget)
+        expect(remainingTarget.status).toBe('hidden')
+        expect(await store.revealCell(remainingTarget)).toBe('target')
+        expect(store.status).toBe('success')
+    })
 })
 
 const useAemeathStoreForTest = () => {

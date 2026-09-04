@@ -208,7 +208,9 @@ export const useGameStore = defineStore('aemeath-game', () => {
 
     const useHint = (): string | null => {
         if (status.value !== 'playing' || inputLocked.value || !level.value) return null
-        const target = level.value.cells.find((cell) => cell.hasTarget && cell.status === 'hidden')
+        const target = level.value.cells.find((cell) =>
+            cell.hasTarget && cell.status !== 'revealed-target',
+        )
         hintedCellKey.value = target ? pointKey(target) : null
         if (target) window.setTimeout(() => {
             if (hintedCellKey.value === pointKey(target)) hintedCellKey.value = null
